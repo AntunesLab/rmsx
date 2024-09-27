@@ -1,21 +1,38 @@
-# could add thees to the requirements
-library(ggplot2)
-library(viridis)
-library(tidyverse)
-library(readr)
-# library(superheat)
-library(reshape2)
-library(gridExtra)
-library(grid)
-library(cowplot)
+# # could add thees to the requirements
+# library(ggplot2)
+# library(viridis)
+# library(tidyverse)
+# library(readr)
+# # library(superheat)
+# library(reshape2)
+# library(gridExtra)
+# library(grid)
+# library(cowplot)
+# 
+# # copied from triple_plot_rmsx.R
+# 
+# # Ensure the cluster has the necessary libraries
+# packages <- c("viridis", "tidyverse")
+# 
+# options(repos = list(CRAN = "https://cloud.r-project.org"))
+# 
+# install_if_not_present <- function(pkg) {
+#   if (!require(pkg, character.only = TRUE)) {
+#     install.packages(pkg, dependencies = TRUE)
+#     library(pkg, character.only = TRUE)
+#   }
+# }
+# 
+# sapply(packages, install_if_not_present)
+# 
+# # Function to parse command line arguments
 
-# copied from triple_plot_rmsx.R
+####
 
-# Ensure the cluster has the necessary libraries
-packages <- c("viridis", "tidyverse")
+# List of required packages
+packages <- c("ggplot2", "viridis", "dplyr", "tidyr", "stringr", "readr", "gridExtra", "grid")
 
-options(repos = list(CRAN = "https://cloud.r-project.org"))
-
+# Function to install packages if not already installed
 install_if_not_present <- function(pkg) {
   if (!require(pkg, character.only = TRUE)) {
     install.packages(pkg, dependencies = TRUE)
@@ -23,11 +40,10 @@ install_if_not_present <- function(pkg) {
   }
 }
 
+# Install required packages
 sapply(packages, install_if_not_present)
 
-# Function to parse command line arguments
-parse_args <- function() {
-  args <- commandArgs(trailingOnly = TRUE)
+
   
   # Simulating command line arguments
   # args <- character(3)
@@ -36,6 +52,11 @@ parse_args <- function() {
   # args[3] <- "/Users/finn/Desktop/RMSX_Demo_files_mac/ubq_ww_pcv_example/rmsd.csv"
   # args[4] <- "/Users/finn/Desktop/RMSX_Demo_files_mac/ubq_ww_pcv_example/rmsf.csv"
   #########################################
+
+# # Function to parse command line arguments
+
+parse_args <- function() {
+  args <- commandArgs(trailingOnly = TRUE)
 
 
   if (length(args) == 0) {

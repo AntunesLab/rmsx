@@ -62,7 +62,7 @@ def process_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5, ch
             output_dir = os.path.join(os.getcwd(), f"{base_name}_chain_{chain_sele}_rmsx")
         else:
             output_dir = os.path.join(os.getcwd(), f"{base_name}_rmsx")
-    setup_directory(output_dir)
+    # setup_directory(output_dir)
     u = setup_universe(psf_file, dcd_file)
     process_trajectory(u, pdb_file, dcd_file, output_dir, len(u.trajectory), slice_size, False, chain_sele)
     all_data = analyze_trajectory(output_dir, chain_sele)
@@ -260,7 +260,7 @@ def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
         base_name = os.path.splitext(os.path.basename(pdb_file))[0]
         output_dir = os.path.join(os.getcwd(), f"{base_name}_rmsx")
         # Set up or clear the output directory based on user input
-        setup_directory(output_dir)
+        # setup_directory(output_dir)
 
     # Load the PDB file to extract chain information
     u_pdb = mda.Universe(pdb_file)

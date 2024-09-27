@@ -26,15 +26,11 @@
 # sapply(packages, install_if_not_present)
 # 
 # # Function to parse command line arguments
-# parse_args <- function() {
-#   args <- commandArgs(trailingOnly = TRUE)
-
-
 
 ####
 
 # List of required packages
-packages <- c("ggplot2", "viridis", "dplyr", "tidyr", "readr", "gridExtra", "grid")
+packages <- c("ggplot2", "viridis", "dplyr", "tidyr", "stringr", "readr", "gridExtra", "grid")
 
 # Function to install packages if not already installed
 install_if_not_present <- function(pkg) {
@@ -57,6 +53,10 @@ sapply(packages, install_if_not_present)
   # args[4] <- "/Users/finn/Desktop/RMSX_Demo_files_mac/ubq_ww_pcv_example/rmsf.csv"
   #########################################
 
+# # Function to parse command line arguments
+
+parse_args <- function() {
+  args <- commandArgs(trailingOnly = TRUE)
 
   if (length(args) == 0) {
     stop("No CSV file path provided!", call. = FALSE)
