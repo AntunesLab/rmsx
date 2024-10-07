@@ -83,19 +83,20 @@ Install the package using `pip`. It's recommended to use a virtual environment.
 #### Option A: Using a Virtual Environment
 
 Create and activate a virtual environment:
-
-`# For virtualenv python -m venv venv source venv/bin/activate  # On Windows: venv\Scripts\activate  # For conda conda create -n rmsx_env python=3.8 conda activate rmsx_env`
+```
+# For virtualenv python -m venv venv source venv/bin/activate  # On Windows: venv\Scripts\activate  # For conda conda create -n rmsx_env python=3.8 conda activate rmsx_env
+```
 
 Install the package in editable mode (useful for development):
 
-
-`pip install -e .`
-
+```
+pip install -e .
+```
 #### Option B: Install Globally
 
-
-`pip install .`
-
+```
+pip install .
+```
 ### 3. Install R and Required Packages
 
 #### Install R
@@ -106,14 +107,14 @@ If you don't have R installed, download and install it from CRAN.
 
 Open R or RStudio and install the required packages:
 
-
-`install.packages(c("ggplot2", "gridExtra", "reshape2", "scales"))`
-
+```
+install.packages(c("ggplot2", "gridExtra", "reshape2", "scales"))
+```
 Alternatively, you can install the packages from the command line:
 
-
-`Rscript -e "install.packages(c('ggplot2', 'gridExtra', 'reshape2', 'scales'), repos='http://cran.rstudio.com/')"`
-
+```
+Rscript -e "install.packages(c('ggplot2', 'gridExtra', 'reshape2', 'scales'), repos='http://cran.rstudio.com/')"
+```
 ---
 
 ## Usage
@@ -123,9 +124,9 @@ Alternatively, you can install the packages from the command line:
 The package provides a command-line tool `rmsx_cli.py` for easy usage.
 
 #### Syntax
-
-`rmsx_cli.py [options] psf_file dcd_file pdb_file`
-
+```
+rmsx_cli.py [options] psf_file dcd_file pdb_file
+```
 #### Positional Arguments
 
 - `psf_file`: Path to the topology file (e.g., `.psf`, `.gro`)
@@ -145,22 +146,22 @@ The package provides a command-line tool `rmsx_cli.py` for easy usage.
 
 To view the help message and see all options:
 
-
-`rmsx_cli.py --help`
-
+```
+rmsx_cli.py --help
+```
 ### Python Module
 
 You can also use the tool directly within your Python scripts or Jupyter notebooks.
 
 #### Importing the Module
-
-`from rmsx.analysis import perform_rmsx`
-
+```
+from rmsx.analysis import perform_rmsx
+```
 #### Function Syntax
 
-
-`perform_rmsx(     psf_file,     dcd_file,     pdb_file,     r_script_name='triple_plot_rmsx.R',     output_dir=None,     slice_size=5,     rscript_executable='Rscript',     verbose=True,     interpolate=False,     triple=False )`
-
+```
+run_rmsx(psf_file, dcd_file, pdb_file, r_script_name='triple_plot_rmsx.R', output_dir=None, slice_size=5, rscript_executable='Rscript', verbose=True,     interpolate=False, triple=False )
+```
 #### Parameters
 
 - `psf_file`: Path to the topology file
@@ -184,26 +185,28 @@ Process a trajectory with default settings and generate plots.
 
 #### Command Line
 
-
-`rmsx_cli.py structure.psf trajectory.dcd structure.pdb`
-
+```
+rmsx_cli.py structure.psf trajectory.dcd structure.pdb
+```
 #### Python Script
 
-
-`from rmsx.analysis import perform_rmsx  perform_rmsx(     psf_file='structure.psf',     dcd_file='trajectory.dcd',     pdb_file='structure.pdb' )`
-
+```
+from rmsx.analysis import perform_rmsx  perform_rmsx(psf_file='structure.psf', dcd_file='trajectory.dcd', pdb_file='structure.pdb' )
+```
 ### Example 2: Advanced Options
 
 Process a trajectory, specify output directory and slice size, enable verbose output and triple plotting.
 
 #### Command Line
-
-`rmsx_cli.py structure.psf trajectory.dcd structure.pdb \ --output_dir analysis_results \ --slice_size 20 \ --verbose \ --triple`
-
+```
+rmsx_cli.py structure.psf trajectory.dcd structure.pdb \ --output_dir analysis_results \ --slice_size 20 \ --verbose \ --triple 
+```
 #### Python Script
 
-
-`from rmsx.analysis import perform_rmsx  perform_rmsx(     psf_file='structure.psf',     dcd_file='trajectory.dcd',     pdb_file='structure.pdb',     output_dir='analysis_results',     slice_size=20,     verbose=True,     triple=True )`
+```
+from rmsx.analysis import perform_rmsx
+perform_rmsx(psf_file='structure.psf', dcd_file='trajectory.dcd', pdb_file='structure.pdb', output_dir='analysis_results', slice_size=20, verbose=True,     triple=True)
+```
 
 ### Example 3: Selecting a Specific Chain
 
@@ -237,9 +240,9 @@ Enter the chain ID (e.g., `A`) to proceed with the analysis on that specific cha
 
 **Error Message:**
 
-
-`ValueError: Universe.load_new(): File ... cannot be read`
-
+```
+ValueError: Universe.load_new(): File ... cannot be read
+```
 **Solution:**
 
 - Verify that your topology and trajectory files are in compatible formats supported by MDAnalysis.
@@ -249,9 +252,9 @@ Enter the chain ID (e.g., `A`) to proceed with the analysis on that specific cha
 
 **Error Message:**
 
-
-`Error in library(ggplot2) : there is no package called ‘ggplot2’`
-
+```
+Error in library(ggplot2) : there is no package called ‘ggplot2’
+```
 **Solution:**
 
 - Install the required R packages using the instructions in the [R Dependencies](#r-dependencies) section.
@@ -260,9 +263,9 @@ Enter the chain ID (e.g., `A`) to proceed with the analysis on that specific cha
 
 **Error Message:**
 
-
-`Chain 'C' is not available in the topology file.`
-
+```
+Chain 'C' is not available in the topology file.
+```
 **Solution:**
 
 - Ensure that you enter a valid chain ID as displayed in the prompt.
@@ -291,18 +294,6 @@ If you have any questions, suggestions, or need assistance, please feel free to 
 
 - **Email**: fpberuld@cougarnet.uh.edu
 - **GitHub Issues**: [GitHub Repository Issues](https://github.com/finn2400/rmsx/issues)
-
----
-
-## Contributing
-
-We welcome contributions to improve this tool. If you're interested in contributing, please:
-
-- Fork the repository.
-- Create a new branch for your feature or bug fix.
-- Submit a pull request with a detailed description of your changes.
-
-Please ensure that your code follows the project's coding standards and includes appropriate tests.
 
 ---
 
