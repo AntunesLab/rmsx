@@ -74,7 +74,9 @@ run_rmsx(psf_file, dcd_file, pdb_file, output_dir, 15, 'Rscript', verbose=True, 
 ## Introduction
 
 The **RMSX Trajectory Analysis Tool** is a Python package designed to facilitate the analysis of molecular dynamics simulations. RMSX itself is a time series RMSF and combines the features of both RMSF and RMSD. This package produces graphs like the following:
+
 ![Alt text](test_files/triple_plot.png)
+
 From these plots, it is easy to see the fluctuation (amount of movement) when (the time in terms of frames or nanoseconds) where (which residue was moving), and how much (the RMSX or RMSF over that slice of time)
 
 
