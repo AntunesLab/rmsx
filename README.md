@@ -159,12 +159,12 @@ If you don't have R installed, download and install it from CRAN.
 Open R or RStudio and install the required packages:
 
 ```
-install.packages(c("ggplot2", "gridExtra", "reshape2", "scales"))
+install.packages(c("ggplot2", "viridis", "dplyr", "tidyr", "stringr", "readr", "gridExtra", "grid")))
 ```
 Alternatively, you can install the packages from the command line:
 
 ```
-Rscript -e "install.packages(c('ggplot2', 'gridExtra', 'reshape2', 'scales'), repos='http://cran.rstudio.com/')"
+Rscript -e "install.packages(c("ggplot2", "viridis", "dplyr", "tidyr", "stringr", "readr", "gridExtra", "grid"), repos='http://cran.rstudio.com/')"
 ```
 ---
 
