@@ -44,7 +44,7 @@ install.packages(c('ggplot2', 'gridExtra', 'reshape2', 'scales'), repos='http://
 
 
 ```python
-# Clone the RMSX repository (replace with the actual repository URL)
+# Clone the RMSX repository 
 !git clone https://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@github.com/AntunesLab/rmsx.git
 !pip install -e ./rmsx/.
 ```
