@@ -5,7 +5,7 @@ Welcome to the tutorial for setting up and running the **RMSX Trajectory Analysi
 ---
 
 ## Table of Contents
-
+- [Quick Start](#Quick Start with Collab)
 - [Introduction](#introduction)
 - [Prerequisites](#prerequisites)
     - [Software Requirements](#software-requirements)
@@ -29,6 +29,49 @@ Welcome to the tutorial for setting up and running the **RMSX Trajectory Analysi
 - [License](#license)
 
 ---
+## Quick Start with Collab
+
+```python
+!pip install rpy2
+%load_ext rpy2.ipython
+```
+
+```r
+%%R
+install.packages(c('ggplot2', 'gridExtra', 'reshape2', 'scales'), repos='http://cran.r-project.org/')
+
+```
+
+
+```python
+# Clone the RMSX repository (replace with the actual repository URL)
+!git clone https://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@github.com/AntunesLab/rmsx.git
+!pip install -e ./rmsx/.
+```
+
+    
+
+```python
+import os, sys
+
+# Add the parent directory of 'rmsx' to sys.path
+sys.path.append('/content/rmsx/rmsx')
+print(sys.path)
+```
+
+```python
+from rmsx import run_rmsx
+```
+
+```python
+psf_file = "/content/rmsx/test_files/1UBQ.psf"
+dcd_file = "/content/rmsx/test_files/mon_sys.dcd"
+pdb_file = "/content/rmsx/test_files/1UBQ.pdb"
+output_dir = "/content/rmsx/test_files/colab_demo_data2"
+
+
+run_rmsx(psf_file, dcd_file, pdb_file, output_dir, 15, 'Rscript', verbose=True, interpolate=False, triple=False)
+```
 
 ## Introduction
 
@@ -99,6 +142,8 @@ pip install -e .
 ```
 pip install .
 ```
+
+
 ### 3. Install R and Required Packages
 
 #### Install R
