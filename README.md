@@ -84,9 +84,11 @@ Install the package using `pip`. It's recommended to use a virtual environment.
 
 Create and activate a virtual environment:
 ```
-# For virtualenv python -m venv venv source venv/bin/activate  # On Windows: venv\Scripts\activate  # For conda conda create -n rmsx_env python=3.8 conda activate rmsx_env
+# For virtualenv
+python -m venv venv source venv/bin/activate
+# On Windows: venv\Scripts\activate
+# For conda conda create -n rmsx_env python=3.8 conda activate rmsx_env
 ```
-
 Install the package in editable mode (useful for development):
 
 ```
@@ -155,12 +157,22 @@ You can also use the tool directly within your Python scripts or Jupyter noteboo
 
 #### Importing the Module
 ```
-from rmsx.analysis import perform_rmsx
+from rmsx.analysis import run_rmsx
 ```
 #### Function Syntax
 
 ```
-run_rmsx(psf_file, dcd_file, pdb_file, r_script_name='triple_plot_rmsx.R', output_dir=None, slice_size=5, rscript_executable='Rscript', verbose=True,     interpolate=False, triple=False )
+run_rmsx(
+    psf_file,
+    dcd_file,
+    pdb_file,
+    r_script_name='triple_plot_rmsx.R',
+    output_dir=None,
+    slice_size=5,
+    rscript_executable='Rscript',
+    verbose=True,
+    interpolate=False,
+    triple=False)
 ```
 #### Parameters
 
@@ -191,7 +203,7 @@ rmsx_cli.py structure.psf trajectory.dcd structure.pdb
 #### Python Script
 
 ```
-from rmsx.analysis import perform_rmsx  perform_rmsx(psf_file='structure.psf', dcd_file='trajectory.dcd', pdb_file='structure.pdb' )
+from rmsx.analysis import run_rmsx  run_rmsx(psf_file='structure.psf', dcd_file='trajectory.dcd', pdb_file='structure.pdb' )
 ```
 ### Example 2: Advanced Options
 
@@ -204,8 +216,8 @@ rmsx_cli.py structure.psf trajectory.dcd structure.pdb \ --output_dir analysis_r
 #### Python Script
 
 ```
-from rmsx.analysis import perform_rmsx
-perform_rmsx(psf_file='structure.psf', dcd_file='trajectory.dcd', pdb_file='structure.pdb', output_dir='analysis_results', slice_size=20, verbose=True,     triple=True)
+from rmsx.analysis import run_rmsx
+run_rmsx(psf_file='structure.psf', dcd_file='trajectory.dcd', pdb_file='structure.pdb', output_dir='analysis_results', slice_size=20, verbose=True,     triple=True)
 ```
 
 ### Example 3: Selecting a Specific Chain
