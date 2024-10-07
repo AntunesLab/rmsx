@@ -74,10 +74,6 @@ The R script used for plotting requires the following R packages:
 
 First, clone the repository from GitHub to your local machine:
 
-bash
-
-Copy code
-
 `git clone https://github.com/finn2400/rmsx.git cd rmsx`
 
 ### 2. Install the Python Package
@@ -88,25 +84,15 @@ Install the package using `pip`. It's recommended to use a virtual environment.
 
 Create and activate a virtual environment:
 
-bash
-
-Copy code
-
 `# For virtualenv python -m venv venv source venv/bin/activate  # On Windows: venv\Scripts\activate  # For conda conda create -n rmsx_env python=3.8 conda activate rmsx_env`
 
 Install the package in editable mode (useful for development):
 
-bash
-
-Copy code
 
 `pip install -e .`
 
 #### Option B: Install Globally
 
-bash
-
-Copy code
 
 `pip install .`
 
@@ -120,17 +106,11 @@ If you don't have R installed, download and install it from CRAN.
 
 Open R or RStudio and install the required packages:
 
-R
-
-Copy code
 
 `install.packages(c("ggplot2", "gridExtra", "reshape2", "scales"))`
 
 Alternatively, you can install the packages from the command line:
 
-bash
-
-Copy code
 
 `Rscript -e "install.packages(c('ggplot2', 'gridExtra', 'reshape2', 'scales'), repos='http://cran.rstudio.com/')"`
 
@@ -143,10 +123,6 @@ Copy code
 The package provides a command-line tool `rmsx_cli.py` for easy usage.
 
 #### Syntax
-
-bash
-
-Copy code
 
 `rmsx_cli.py [options] psf_file dcd_file pdb_file`
 
@@ -169,9 +145,6 @@ Copy code
 
 To view the help message and see all options:
 
-bash
-
-Copy code
 
 `rmsx_cli.py --help`
 
@@ -181,17 +154,10 @@ You can also use the tool directly within your Python scripts or Jupyter noteboo
 
 #### Importing the Module
 
-python
-
-Copy code
-
 `from rmsx.analysis import perform_rmsx`
 
 #### Function Syntax
 
-python
-
-Copy code
 
 `perform_rmsx(     psf_file,     dcd_file,     pdb_file,     r_script_name='triple_plot_rmsx.R',     output_dir=None,     slice_size=5,     rscript_executable='Rscript',     verbose=True,     interpolate=False,     triple=False )`
 
@@ -218,17 +184,11 @@ Process a trajectory with default settings and generate plots.
 
 #### Command Line
 
-bash
-
-Copy code
 
 `rmsx_cli.py structure.psf trajectory.dcd structure.pdb`
 
 #### Python Script
 
-python
-
-Copy code
 
 `from rmsx.analysis import perform_rmsx  perform_rmsx(     psf_file='structure.psf',     dcd_file='trajectory.dcd',     pdb_file='structure.pdb' )`
 
@@ -238,17 +198,10 @@ Process a trajectory, specify output directory and slice size, enable verbose ou
 
 #### Command Line
 
-bash
-
-Copy code
-
 `rmsx_cli.py structure.psf trajectory.dcd structure.pdb \ --output_dir analysis_results \ --slice_size 20 \ --verbose \ --triple`
 
 #### Python Script
 
-python
-
-Copy code
 
 `from rmsx.analysis import perform_rmsx  perform_rmsx(     psf_file='structure.psf',     dcd_file='trajectory.dcd',     pdb_file='structure.pdb',     output_dir='analysis_results',     slice_size=20,     verbose=True,     triple=True )`
 
@@ -256,9 +209,6 @@ Copy code
 
 When you run the tool, it will prompt you to select a chain from your structure for analysis.
 
-bash
-
-Copy code
 
 `Available chains and their lengths (in residues): Chain A: 153 residues Chain B: 160 residues Please enter the chain ID you would like to analyze from the following options: A (153 residues), B (160 residues) Chain ID:`
 
@@ -274,9 +224,6 @@ Enter the chain ID (e.g., `A`) to proceed with the analysis on that specific cha
 
 **Error Message:**
 
-bash
-
-Copy code
 
 `Fatal error: cannot open file '.../rmsx/r_scripts/triple_plot_rmsx.R': No such file or directory`
 
@@ -290,9 +237,6 @@ Copy code
 
 **Error Message:**
 
-bash
-
-Copy code
 
 `ValueError: Universe.load_new(): File ... cannot be read`
 
@@ -305,9 +249,6 @@ Copy code
 
 **Error Message:**
 
-bash
-
-Copy code
 
 `Error in library(ggplot2) : there is no package called ‘ggplot2’`
 
@@ -319,9 +260,6 @@ Copy code
 
 **Error Message:**
 
-bash
-
-Copy code
 
 `Chain 'C' is not available in the topology file.`
 
