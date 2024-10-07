@@ -38,8 +38,7 @@ Welcome to the tutorial for setting up and running the **RMSX Trajectory Analysi
 
 ```r
 %%R
-install.packages(c('ggplot2', 'gridExtra', 'reshape2', 'scales'), repos='http://cran.r-project.org/')
-
+install.packages(c("ggplot2", "viridis", "dplyr", "tidyr", "stringr", "readr", "gridExtra", "grid"), repos='http://cran.r-project.org/')
 ```
 
 
