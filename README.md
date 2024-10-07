@@ -73,9 +73,9 @@ The R script used for plotting requires the following R packages:
 ### 1. Clone the Repository
 
 First, clone the repository from GitHub to your local machine:
-
-`git clone https://github.com/finn2400/rmsx.git cd rmsx`
-
+```
+git clone https://github.com/finn2400/rmsx.git cd rmsx
+```
 ### 2. Install the Python Package
 
 Install the package using `pip`. It's recommended to use a virtual environment.
