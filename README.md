@@ -22,7 +22,6 @@ Welcome to the tutorial for setting up and running the **RMSX Trajectory Analysi
     - [Example 1: Basic Usage](#example-1-basic-usage)
     - [Example 2: Advanced Options](#example-2-advanced-options)
     - [Example 3: Selecting a Specific Chain](#example-3-selecting-a-specific-chain)
-- [Troubleshooting](#troubleshooting)
 - [Additional Resources](#additional-resources)
 - [Contact Information](#contact-information)
 - [Contributing](#contributing)
@@ -107,11 +106,15 @@ These dependencies will be installed automatically when you install the package 
 ### R Dependencies
 
 The R script used for plotting requires the following R packages:
-
 - **ggplot2**
+- **viridis**
+- **dplyr**
+- **tidyr**
+- **stringr**
+- **readr**
+- **grid**
 - **gridExtra**
-- **reshape2**
-- **scales**
+
 
 ---
 
@@ -291,58 +294,6 @@ When you run the tool, it will prompt you to select a chain from your structure 
 Enter the chain ID (e.g., `A`) to proceed with the analysis on that specific chain.
 
 ---
-
-## Troubleshooting
-
-### Common Issues and Solutions
-
-#### 1. R Script Not Found
-
-**Error Message:**
-
-
-`Fatal error: cannot open file '.../rmsx/r_scripts/triple_plot_rmsx.R': No such file or directory`
-
-**Solution:**
-
-- Ensure that the R scripts are included in your installation.
-- Reinstall the package using `pip install -e .` in the package directory.
-- Verify that the `r_scripts` directory exists within the installed package.
-
-#### 2. MDAnalysis Errors Loading Files
-
-**Error Message:**
-
-```
-ValueError: Universe.load_new(): File ... cannot be read
-```
-**Solution:**
-
-- Verify that your topology and trajectory files are in compatible formats supported by MDAnalysis.
-- Check that the files are not corrupted and correspond to the same simulation.
-
-#### 3. R Packages Not Installed
-
-**Error Message:**
-
-```
-Error in library(ggplot2) : there is no package called ‘ggplot2’
-```
-**Solution:**
-
-- Install the required R packages using the instructions in the [R Dependencies](#r-dependencies) section.
-
-#### 4. Chain Not Found
-
-**Error Message:**
-
-```
-Chain 'C' is not available in the topology file.
-```
-**Solution:**
-
-- Ensure that you enter a valid chain ID as displayed in the prompt.
-- Chain IDs are case-sensitive; make sure to match the exact ID.
 
 ### Getting Help
 
