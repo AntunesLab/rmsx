@@ -304,6 +304,8 @@ def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
         rmsf_csv = calculate_rmsf(pdb_file, dcd_file, output_dir, chain_sele=selected_chain)
         print(f"RMSF CSV: {rmsf_csv}")
         print("Generating plots...")
+        print("This may take several minutes the first time it is run.")
+
         create_r_plot(rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple)
     else:
         with open(os.devnull, 'w') as f, redirect_stdout(f):
