@@ -5,7 +5,7 @@ Welcome to the tutorial for setting up and running the **RMSX Trajectory Analysi
 ---
 
 ## Table of Contents
-- [Quick Start with Collab(#quick-start)
+- [Quick Start with Google Colab](#quick-start)
 - [Introduction](#introduction)
 - [Prerequisites](#prerequisites)
     - [Software Requirements](#software-requirements)
