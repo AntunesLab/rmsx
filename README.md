@@ -206,7 +206,13 @@ You can also use the tool directly within your Python scripts or Jupyter noteboo
 
 #### Importing the Module
 ```
-from rmsx.analysis import run_rmsx
+import os, sys
+
+# Add the parent directory of 'rmsx' to sys.path
+sys.path.append('/content/rmsx/rmsx')
+print(sys.path)
+
+from rmsx import run_rmsx
 ```
 #### Function Syntax
 
@@ -251,8 +257,14 @@ rmsx_cli.py structure.psf trajectory.dcd structure.pdb
 ```
 #### Python Script
 
-```
-from rmsx.analysis import run_rmsx  run_rmsx(psf_file='structure.psf', dcd_file='trajectory.dcd', pdb_file='structure.pdb' )
+```python
+import os, sys
+
+# Add the parent directory of 'rmsx' to sys.path
+sys.path.append('/content/rmsx/rmsx')
+print(sys.path)
+
+run_rmsx(psf_file='structure.psf', dcd_file='trajectory.dcd', pdb_file='structure.pdb' )
 ```
 ### Example 2: Advanced Options
 
