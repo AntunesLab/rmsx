@@ -22,16 +22,19 @@ def initialize_environment():
     print(sys.executable)
     print(os.getcwd())
 
-def check_directory(output_dir):
-    """Ask user if they want to overwrite an existing directory."""
+def check_directory(output_dir, overwrite=False):
+    """Check if the output directory exists and handle overwriting based on the overwrite flag."""
     if os.path.exists(output_dir):
-        response = input(f"The directory '{output_dir}' already exists. Do you want to overwrite it? (y/n): ")
-        return response.strip().lower() == 'y'
+        if overwrite:
+            return True
+        else:
+            response = input(f"The directory '{output_dir}' already exists. Do you want to overwrite it? (y/n): ")
+            return response.strip().lower() == 'y'
     return True  # Proceed if the directory does not exist
 
-def setup_directory(output_dir):
+def setup_directory(output_dir, overwrite=False):
     """Set up or clear the output directory based on user preference."""
-    if check_directory(output_dir):
+    if check_directory(output_dir, overwrite=overwrite):
         if os.path.exists(output_dir):
             # Clear existing directory content
             for file in os.listdir(output_dir):
@@ -49,6 +52,7 @@ def setup_directory(output_dir):
     else:
         print(f"Process terminated by user. The directory '{output_dir}' will not be overwritten.")
         sys.exit(1)  # Exit the script if the user does not want to overwrite
+
 
 def setup_universe(topology_file, trajectory_file):
     """Set up the MDAnalysis universe."""
@@ -253,14 +257,13 @@ def create_r_plot(rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable='Rscript', in
         print("No PNG files found in the specified directory.")
 
 def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
-         rscript_executable='Rscript', verbose=True, interpolate=True, triple=False):
+             rscript_executable='Rscript', verbose=True, interpolate=True, triple=False,
+             chain_sele=None, overwrite=False):
     # Initialize environment and set up output directory
     initialize_environment()
     if output_dir is None:
         base_name = os.path.splitext(os.path.basename(pdb_file))[0]
         output_dir = os.path.join(os.getcwd(), f"{base_name}_rmsx")
-        # Set up or clear the output directory based on user input
-        # setup_directory(output_dir)
 
     # Load the PDB file to extract chain information
     u_pdb = mda.Universe(pdb_file)
@@ -273,35 +276,42 @@ def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
         num_residues = len(chain_atoms.residues)
         chain_info[chain] = num_residues
 
-    # Display available chains and their lengths
-    print("Available chains and their lengths (in residues):")
-    for chain, length in chain_info.items():
-        print(f"Chain {chain}: {length} residues")
+    if chain_sele is None:
+        # Display available chains and their lengths
+        print("Available chains and their lengths (in residues):")
+        for chain, length in chain_info.items():
+            print(f"Chain {chain}: {length} residues")
 
-    # Prompt the user to select a chain
-    chain_list = ", ".join([f"{chain} ({length} residues)" for chain, length in chain_info.items()])
-    selected_chain = input(f"Please enter the chain ID you would like to analyze from the following options:\n{chain_list}\nChain ID: ").strip()
+        # Prompt the user to select a chain
+        chain_list = ", ".join([f"{chain} ({length} residues)" for chain, length in chain_info.items()])
+        selected_chain = input(f"Please enter the chain ID you would like to analyze from the following options:\n{chain_list}\nChain ID: ").strip()
 
-    # Check if the selected chain is valid
-    if selected_chain not in chain_ids:
-        print(f"Chain '{selected_chain}' is not available in the PDB file.")
-        sys.exit(1)  # Exit the function or handle the error as desired
+        # Check if the selected chain is valid
+        if selected_chain not in chain_ids:
+            print(f"Chain '{selected_chain}' is not available in the PDB file.")
+            sys.exit(1)  # Exit the function or handle the error as desired
 
-    # Proceed with analysis using the original PDB and DCD files, applying chain selection in analysis functions
+        chain_sele = selected_chain  # Assign the selected chain
+    else:
+        # Check if the provided chain_sele is valid
+        if chain_sele not in chain_ids:
+            print(f"Chain '{chain_sele}' is not available in the PDB file.")
+            sys.exit(1)  # Exit the function or handle the error as desired
+
     # Update output directory to include the chain ID
     base_name = os.path.splitext(os.path.basename(pdb_file))[0]
-    output_dir = os.path.join(output_dir, f"chain_{selected_chain}_rmsx")
-    setup_directory(output_dir)
+    output_dir = os.path.join(output_dir, f"chain_{chain_sele}_rmsx")
+    setup_directory(output_dir, overwrite=overwrite)
 
     # Run the analysis using the selected chain
     if verbose:
         print("Starting analysis...")
-        process_rmsx(psf_file, dcd_file, pdb_file, output_dir, slice_size, chain_sele=selected_chain)
+        process_rmsx(psf_file, dcd_file, pdb_file, output_dir, slice_size, chain_sele=chain_sele)
         rmsx_csv = file_namer(output_dir, dcd_file, "csv")
         print(f"RMSX CSV: {rmsx_csv}")
-        rmsd_csv = calculate_rmsd(pdb_file, dcd_file, output_dir, chain_sele=selected_chain)
+        rmsd_csv = calculate_rmsd(pdb_file, dcd_file, output_dir, chain_sele=chain_sele)
         print(f"RMSD CSV: {rmsd_csv}")
-        rmsf_csv = calculate_rmsf(pdb_file, dcd_file, output_dir, chain_sele=selected_chain)
+        rmsf_csv = calculate_rmsf(pdb_file, dcd_file, output_dir, chain_sele=chain_sele)
         print(f"RMSF CSV: {rmsf_csv}")
         print("Generating plots...")
         print("This may take several minutes the first time it is run.")
@@ -309,10 +319,9 @@ def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
         create_r_plot(rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple)
     else:
         with open(os.devnull, 'w') as f, redirect_stdout(f):
-            process_rmsx(psf_file, dcd_file, pdb_file, output_dir, slice_size, chain_sele=selected_chain)
+            process_rmsx(psf_file, dcd_file, pdb_file, output_dir, slice_size, chain_sele=chain_sele)
             rmsx_csv = file_namer(output_dir, dcd_file, "csv")
-            rmsd_csv = calculate_rmsd(pdb_file, dcd_file, output_dir, chain_sele=selected_chain)
-            rmsf_csv = calculate_rmsf(pdb_file, dcd_file, output_dir, chain_sele=selected_chain)
+            rmsd_csv = calculate_rmsd(pdb_file, dcd_file, output_dir, chain_sele=chain_sele)
+            rmsf_csv = calculate_rmsf(pdb_file, dcd_file, output_dir, chain_sele=chain_sele)
         with open(os.devnull, 'w') as f, redirect_stdout(f):
             create_r_plot(rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple)
-
