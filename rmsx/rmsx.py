@@ -256,6 +256,51 @@ def create_r_plot(rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable='Rscript', in
     else:
         print("No PNG files found in the specified directory.")
 
+
+# add ability to add the chains to the b factors
+def update_pdb_bfactor(pdb_file, rmsx_df):
+    # Extract slice number from the file name
+    pdb_file_base_name = os.path.basename(pdb_file)
+    slice_number = int(pdb_file_base_name.split('_')[1])  # Assumes file name format is like 'slice_10_first_frame.pdb'
+    # Create the column name for the current slice
+    rmsx_column = f'slice_{slice_number}.dcd'
+    # Open and read the PDB file
+    with open(pdb_file, 'r') as pdb:
+        pdb_lines = pdb.readlines()
+    # Create a new list to store the modified PDB lines
+    updated_pdb_lines = []
+    for line in pdb_lines:
+        # Check if the line is an ATOM or HETATM line
+        if line.startswith(('ATOM', 'HETATM')):
+            # Extract residue number (columns 23-26 in a PDB file)
+            residue_number = int(line[22:26].strip())
+            # Get the rmsx value from the DataFrame for this residue number using the slice column
+            rmsx_value = rmsx_df.loc[rmsx_df['ResidueID'] == residue_number, rmsx_column].values[0]
+            # Update the B-factor (columns 61-66) with the rmsx value
+            new_bfactor = f"{rmsx_value:6.2f}"  # Format as 6 characters, 2 decimal places
+            updated_line = line[:60] + new_bfactor + line[66:]
+            # Add the updated line to the list
+            updated_pdb_lines.append(updated_line)
+        else:
+            # Non-ATOM/HETATM lines are copied as-is
+            updated_pdb_lines.append(line)
+
+    # Overwrite the original PDB file with the updated lines
+    with open(pdb_file, 'w') as pdb:
+        pdb.writelines(updated_pdb_lines)
+
+    print(f"Original PDB file {pdb_file} has been updated with new B-factors.")
+
+
+def update_all_pdb_bfactors(rmsx_csv):
+    rmsx_df = pd.read_csv(rmsx_csv)
+    if pdb_folder==None:
+        pdb_folder = os.path.dirname(rmsx_csv)
+    pdb_files = load_pdb_files(pdb_folder)
+    for pdb_file in pdb_files:
+        update_pdb_bfactor(pdb_file, rmsx_df)
+
+# primary function for running RMSX
 def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
              rscript_executable='Rscript', verbose=True, interpolate=True, triple=False,
              chain_sele=None, overwrite=False):
@@ -315,7 +360,7 @@ def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
         print(f"RMSF CSV: {rmsf_csv}")
         print("Generating plots...")
         print("This may take several minutes the first time it is run.")
-
+        update_all_pdb_bfactors(rmsx_csv)
         create_r_plot(rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple)
     else:
         with open(os.devnull, 'w') as f, redirect_stdout(f):
@@ -323,5 +368,7 @@ def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
             rmsx_csv = file_namer(output_dir, dcd_file, "csv")
             rmsd_csv = calculate_rmsd(pdb_file, dcd_file, output_dir, chain_sele=chain_sele)
             rmsf_csv = calculate_rmsf(pdb_file, dcd_file, output_dir, chain_sele=chain_sele)
+            update_all_pdb_bfactors(rmsx_csv)
         with open(os.devnull, 'w') as f, redirect_stdout(f):
             create_r_plot(rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple)
+
