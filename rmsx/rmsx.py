@@ -291,8 +291,22 @@ def update_pdb_bfactor(pdb_file, rmsx_df):
 
     print(f"Original PDB file {pdb_file} has been updated with new B-factors.")
 
+# def load_pdb_files(folder_path):
+#     return [f for f in os.listdir(folder_path) if f.endswith('.pdb')]
+
 def load_pdb_files(folder_path):
-    return [f for f in os.listdir(folder_path) if f.endswith('.pdb')]
+    # Function to extract numerical part of the file name
+    def extract_number(filename):
+        # Use regex to find numbers in the filename
+        match = re.search(r'\d+', filename)
+        return int(match.group()) if match else float('inf')  # Return infinity if no number is found
+    # List all .pdb files in the folder
+    pdb_files = [f for f in os.listdir(folder_path) if f.endswith('.pdb')]
+    # Sort files based on the numerical value in the file name
+    sorted_pdb_files = sorted(pdb_files, key=extract_number)
+    # Return the full path of each file
+    return [os.path.join(folder_path, f) for f in sorted_pdb_files]
+
 
 def update_all_pdb_bfactors(rmsx_csv):
     rmsx_df = pd.read_csv(rmsx_csv)
