@@ -294,8 +294,7 @@ def update_pdb_bfactor(pdb_file, rmsx_df):
 
 def update_all_pdb_bfactors(rmsx_csv):
     rmsx_df = pd.read_csv(rmsx_csv)
-    if pdb_folder==None:
-        pdb_folder = os.path.dirname(rmsx_csv)
+    pdb_folder = os.path.dirname(rmsx_csv)
     pdb_files = load_pdb_files(pdb_folder)
     for pdb_file in pdb_files:
         update_pdb_bfactor(pdb_file, rmsx_df)
