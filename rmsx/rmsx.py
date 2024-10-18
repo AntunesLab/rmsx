@@ -291,6 +291,8 @@ def update_pdb_bfactor(pdb_file, rmsx_df):
 
     print(f"Original PDB file {pdb_file} has been updated with new B-factors.")
 
+def load_pdb_files(folder_path):
+    return [f for f in os.listdir(folder_path) if f.endswith('.pdb')]
 
 def update_all_pdb_bfactors(rmsx_csv):
     rmsx_df = pd.read_csv(rmsx_csv)
