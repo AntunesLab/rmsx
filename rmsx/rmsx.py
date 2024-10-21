@@ -337,6 +337,10 @@ def plot_rmsx_surface(
     Returns:
     - None: Displays the interactive plot.
     """
+    import plotly.graph_objects as go
+    import pandas as pd
+    import numpy as np
+    import os
 
     # Resolve absolute path of the input file
     abs_file_path = os.path.abspath(file_path)
@@ -345,6 +349,7 @@ def plot_rmsx_surface(
     # Load the data
     try:
         df = pd.read_csv(abs_file_path)
+        df['ChainID'] = df['ChainID'].astype(str)  # Ensure ChainID is string
         print(f"Successfully loaded data from '{abs_file_path}'.")
     except FileNotFoundError:
         print(f"Error: The file '{abs_file_path}' was not found.")
@@ -387,26 +392,30 @@ def plot_rmsx_surface(
     if initial_chain not in chain_data:
         initial_chain = list(chain_data.keys())[0]
 
+    # Convert initial_chain to string to avoid issues
+    initial_chain_str = str(initial_chain)
+
     fig = go.Figure(data=[go.Surface(
         z=chain_data[initial_chain]['Z'],
         x=chain_data[initial_chain]['X'],
         y=chain_data[initial_chain]['Y'],
         colorscale=colorscale,  # Set colorscale to 'magma' by default
-        hovertemplate='Slice: %{x}<br>Residue: %{y}<br>RMSX: %{z}<extra></extra>'
+        name=f'Chain {initial_chain_str}',
+        hovertemplate='Chain: %{name}<br>Slice: %{x}<br>Residue: %{y}<br>RMSX: %{z}<extra></extra>'
     )])
 
-    # Define layout with dropdown menu for chain selection
+    # Define layout with dropdown menu for chain selection positioned at top-right
     fig.update_layout(
-        title=f'3D RMSX Surface Plot for Chain {initial_chain}',
+        title=f'3D RMSX Surface Plot for Chain {initial_chain_str}',
         scene=dict(
             xaxis_title='Slice',
             yaxis_title='Residue ID',
             zaxis_title='RMSX Value'
         ),
         autosize=True,
-        width=800,
+        width=1000,   # Increased width to provide more space for the dropdown
         height=800,
-        margin=dict(l=65, r=50, b=65, t=90),
+        margin=dict(l=65, r=250, b=65, t=90),  # Increased right margin to accommodate dropdown
         updatemenus=[
             dict(
                 buttons=[
@@ -416,19 +425,23 @@ def plot_rmsx_surface(
                                 'z': [chain_data[chain]['Z']],
                                 'x': [chain_data[chain]['X']],
                                 'y': [chain_data[chain]['Y']],
-                                'title': f'3D RMSX Surface Plot for Chain {chain}'
+                                'title': f'3D RMSX Surface Plot for Chain {str(chain)}',
+                                'name': f'Chain {str(chain)}'
                             }
                         ],
-                        label=chain,
+                        label=str(chain),  # Ensure label is string
                         method='update'
                     ) for chain in chain_data.keys()
                 ],
                 direction="down",
                 showactive=True,
-                x=0.1,
+                x=1.15,        # Position further to the right
                 xanchor="left",
-                y=1.1,
-                yanchor="top"
+                y=1,           # Align with the top of the plot
+                yanchor="top",
+                bgcolor="rgba(255,255,255,0.8)",  # Semi-transparent background for better visibility
+                bordercolor="black",               # Border color
+                borderwidth=1                       # Border width
             ),
         ]
     )
@@ -454,7 +467,6 @@ def plot_rmsx_surface(
             print(f"Plot successfully saved as '{abs_html_filename}'.")
         except Exception as e:
             print(f"Error: Failed to save HTML file. {e}")
-
 
 
 # primary function for running RMSX
