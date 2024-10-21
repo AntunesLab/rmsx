@@ -12,8 +12,7 @@ import glob
 import shutil
 import numpy as np  # Import numpy for unique operations
 import pkg_resources # for managing the r scripts
-
-
+import plotly.graph_objects as go
 
 #copied from moving_rmsx_utils_v10.py
 
@@ -314,6 +313,149 @@ def update_all_pdb_bfactors(rmsx_csv):
     pdb_files = load_pdb_files(pdb_folder)
     for pdb_file in pdb_files:
         update_pdb_bfactor(pdb_file, rmsx_df)
+
+
+# added option for 3d plot using plotly
+def plot_rmsx_surface(
+        file_path: str,
+        save_html: bool = False,
+        html_filename: str = None,
+        colorscale: str = "magma"
+) -> None:
+    """
+    Generates an interactive 3D surface plot of RMSX data from a CSV file.
+
+    Parameters:
+    - file_path (str): Path to the RMSX data CSV file.
+    - save_html (bool): If True, saves the plot as an HTML file. Default is False.
+    - html_filename (str, optional):
+        - If provided, specifies the filename for the saved HTML plot.
+        - If None and `save_html` is True, the plot is saved as 'rmsx_surface_plot.html'
+          in the same directory as the input CSV file.
+    - colorscale (str): Plotly colorscale to use for the surface. Default is 'magma'.
+
+    Returns:
+    - None: Displays the interactive plot.
+    """
+
+    # Resolve absolute path of the input file
+    abs_file_path = os.path.abspath(file_path)
+    input_dir = os.path.dirname(abs_file_path)
+
+    # Load the data
+    try:
+        df = pd.read_csv(abs_file_path)
+        print(f"Successfully loaded data from '{abs_file_path}'.")
+    except FileNotFoundError:
+        print(f"Error: The file '{abs_file_path}' was not found.")
+        return
+    except pd.errors.ParserError:
+        print(f"Error: The file '{abs_file_path}' could not be parsed. Please check the file format.")
+        return
+
+    # Check if required columns exist
+    required_columns = {'ResidueID', 'ChainID'}
+    slice_columns = [col for col in df.columns if col.startswith('slice_')]
+    if not required_columns.issubset(df.columns) or not slice_columns:
+        print("Error: The CSV file must contain 'ResidueID', 'ChainID', and 'slice_*.dcd' columns.")
+        return
+
+    # Get unique chains
+    unique_chains = df['ChainID'].unique()
+    if len(unique_chains) == 0:
+        print("Error: No unique chains found in the data.")
+        return
+
+    # Prepare data for all chains
+    chain_data = {}
+    for chain in unique_chains:
+        filtered = df[df['ChainID'] == chain]
+        if filtered.empty:
+            print(f"Warning: Chain '{chain}' has no data and will be skipped.")
+            continue
+        residue_ids = filtered['ResidueID'].values
+        rmsx_matrix = filtered[slice_columns].values
+        X, Y = np.meshgrid(np.arange(rmsx_matrix.shape[1]), residue_ids)
+        chain_data[chain] = {'X': X, 'Y': Y, 'Z': rmsx_matrix}
+
+    if not chain_data:
+        print("Error: No valid chain data available for plotting.")
+        return
+
+    # Initialize the figure with the first chain
+    initial_chain = unique_chains[0]
+    if initial_chain not in chain_data:
+        initial_chain = list(chain_data.keys())[0]
+
+    fig = go.Figure(data=[go.Surface(
+        z=chain_data[initial_chain]['Z'],
+        x=chain_data[initial_chain]['X'],
+        y=chain_data[initial_chain]['Y'],
+        colorscale=colorscale,  # Set colorscale to 'magma' by default
+        hovertemplate='Slice: %{x}<br>Residue: %{y}<br>RMSX: %{z}<extra></extra>'
+    )])
+
+    # Define layout with dropdown menu for chain selection
+    fig.update_layout(
+        title=f'3D RMSX Surface Plot for Chain {initial_chain}',
+        scene=dict(
+            xaxis_title='Slice',
+            yaxis_title='Residue ID',
+            zaxis_title='RMSX Value'
+        ),
+        autosize=True,
+        width=800,
+        height=800,
+        margin=dict(l=65, r=50, b=65, t=90),
+        updatemenus=[
+            dict(
+                buttons=[
+                    dict(
+                        args=[
+                            {
+                                'z': [chain_data[chain]['Z']],
+                                'x': [chain_data[chain]['X']],
+                                'y': [chain_data[chain]['Y']],
+                                'title': f'3D RMSX Surface Plot for Chain {chain}'
+                            }
+                        ],
+                        label=chain,
+                        method='update'
+                    ) for chain in chain_data.keys()
+                ],
+                direction="down",
+                showactive=True,
+                x=0.1,
+                xanchor="left",
+                y=1.1,
+                yanchor="top"
+            ),
+        ]
+    )
+
+    # Display the plot
+    fig.show()
+
+    # Handle saving the plot as an HTML file
+    if save_html:
+        # Determine the HTML file path
+        if html_filename is None:
+            # Default filename in the same directory as the input file
+            html_filename = "rmsx_surface_plot.html"
+
+        # If html_filename is not an absolute path, place it in the input file's directory
+        if not os.path.isabs(html_filename):
+            abs_html_filename = os.path.join(input_dir, html_filename)
+        else:
+            abs_html_filename = html_filename
+
+        try:
+            fig.write_html(abs_html_filename)
+            print(f"Plot successfully saved as '{abs_html_filename}'.")
+        except Exception as e:
+            print(f"Error: Failed to save HTML file. {e}")
+
+
 
 # primary function for running RMSX
 def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
