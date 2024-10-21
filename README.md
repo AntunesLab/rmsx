@@ -117,7 +117,10 @@ The R script used for plotting requires the following R packages:
 - **grid**
 - **gridExtra**
 
-
+### Input Types
+- pdb
+- gro or psf etc
+- dcd, xtc etc
 ---
 
 ## Installation
