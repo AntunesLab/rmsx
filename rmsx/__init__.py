@@ -1,7 +1,6 @@
 # rmsx/rmsx/__init__.py
 
-from .rmsx import run_rmsx, plot_rmsx_surface, all_chain_rmsx
-
+from .rmsx import run_rmsx, combine_pdb_files, plot_rmsx_surface, all_chain_rmsx
 # Import other necessary functions or classes if any
 
 __all__ = ['run_rmsx']
