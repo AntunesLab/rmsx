@@ -469,6 +469,47 @@ def plot_rmsx_surface(
             print(f"Error: Failed to save HTML file. {e}")
 
 
+# combining the rmsx mapped structures together:
+def combine_pdb_files(chain_dirs, combined_dir):
+    """
+    Combines corresponding PDB files from multiple directories.
+
+    Parameters:
+        chain_dirs (list of str): A list of directories containing PDB files for different chains.
+        combined_dir (str): The directory to store the combined PDB files.
+    """
+    # Create the combined output directory if it doesn't exist
+    os.makedirs(combined_dir, exist_ok=True)
+
+    # Assume all directories contain matching file names
+    # Get a set of PDB filenames by checking the first directory
+    pdb_files = [f for f in os.listdir(chain_dirs[0]) if f.endswith('.pdb')]
+
+    for pdb_file in pdb_files:
+        combined_content = []
+        missing_files = False
+
+        for chain_dir in chain_dirs:
+            pdb_file_path = os.path.join(chain_dir, pdb_file)
+
+            if os.path.exists(pdb_file_path):
+                # Read the content of the current chain's PDB file
+                with open(pdb_file_path, 'r') as file:
+                    combined_content.extend(file.readlines())
+            else:
+                # If a file is missing in any chain directory, skip this file
+                print(f"File {pdb_file} not found in {chain_dir}. Skipping.")
+                missing_files = True
+                break
+
+        if not missing_files:
+            # Write the combined content to the new file in the combined directory
+            combined_pdb_file = os.path.join(combined_dir, pdb_file)
+            with open(combined_pdb_file, 'w') as combined_file:
+                combined_file.writelines(combined_content)
+
+            print(f"Combined {pdb_file} from all chains into {combined_pdb_file}")
+
 # primary function for running RMSX
 def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
              rscript_executable='Rscript', verbose=True, interpolate=True, triple=False,
