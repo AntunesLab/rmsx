@@ -616,7 +616,7 @@ def all_chain_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
         chain_info[chain] = num_residues
 
     for chain in chain_ids:
-        rmsx(psf_file, dcd_file, pdb_file, output_dir, slice_size,
+        run_rmsx(psf_file, dcd_file, pdb_file, output_dir, slice_size,
              rscript_executable, verbose, interpolate, triple,
              chain_sele=chain, overwrite=overwrite)
 
