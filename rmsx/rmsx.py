@@ -510,6 +510,24 @@ def combine_pdb_files(chain_dirs, combined_dir):
 
             print(f"Combined {pdb_file} from all chains into {combined_pdb_file}")
 
+# for combining multiple chains into a single pdb
+def find_and_combine_pdb_files(output_dir, combine_pdb_files):
+    # Find directories ending with '_rmsx' and not starting with "combined"
+    directories_with_dir = [
+        os.path.join(output_dir, d) for d in os.listdir(output_dir)
+        if d.endswith('_rmsx') and not d.startswith("combined") and os.path.isdir(os.path.join(output_dir, d))
+    ]
+
+    print("Directories to combine:", directories_with_dir)
+
+    # Set up the combined directory path
+    combined_dir = os.path.join(output_dir, "combined")
+
+    # Call the combine_pdb_files function on the found directories
+    combine_pdb_files(directories_with_dir, combined_dir)
+
+
+
 # primary function for running RMSX
 def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
              rscript_executable='Rscript', verbose=True, interpolate=True, triple=False,
@@ -583,7 +601,7 @@ def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
             create_r_plot(rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple)
 
 # plan to allow it to be run once and to see the flip book
-
+# made this the place where they are combined together
 def all_chain_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
              rscript_executable='Rscript', verbose=True, interpolate=True, triple=False, overwrite=False):
 
@@ -603,3 +621,7 @@ def all_chain_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
              chain_sele=chain, overwrite=overwrite)
 
     print(f'Ran chains for {chain_ids}')
+
+    find_and_combine_pdb_files(output_dir, combine_pdb_files)
+    print("Combined all RMSX values across chains into one pdb per slice")
+
