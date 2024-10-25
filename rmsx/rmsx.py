@@ -582,3 +582,24 @@ def run_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
         with open(os.devnull, 'w') as f, redirect_stdout(f):
             create_r_plot(rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple)
 
+# plan to allow it to be run once and to see the flip book
+
+def all_chain_rmsx(psf_file, dcd_file, pdb_file, output_dir=None, slice_size=5,
+             rscript_executable='Rscript', verbose=True, interpolate=True, triple=False, overwrite=False):
+
+    u_pdb = mda.Universe(pdb_file)
+    # Extract unique chain IDs (SEGIDs)
+    chain_ids = np.unique(u_pdb.atoms.segids)
+    # Get the number of residues in each chain
+    chain_info = {}
+    for chain in chain_ids:
+        chain_atoms = u_pdb.select_atoms(f'segid {chain}')
+        num_residues = len(chain_atoms.residues)
+        chain_info[chain] = num_residues
+
+    for chain in chain_ids:
+        rmsx(psf_file, dcd_file, pdb_file, output_dir, slice_size,
+             rscript_executable, verbose, interpolate, triple,
+             chain_sele=chain, overwrite=overwrite)
+
+    print(f'Ran chains for {chain_ids}')
