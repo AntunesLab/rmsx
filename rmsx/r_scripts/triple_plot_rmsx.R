@@ -123,7 +123,7 @@ plot_rmsx <- function(rmsx_long, interpolate) {
 
     geom_raster(interpolate = interpolate) +
     # facet_wrap(~Chain) +
-    scale_fill_viridis(option = "magma") +
+    scale_fill_viridis(option = "plasma") +
     # it is suprisingly hard to get the y axis aligned at 0. this is a bit of a hack but it works:
     coord_cartesian(xlim=c(0-(rmsx_long$Time_Point[2] - rmsx_long$Time_Point[1])/2,max(rmsx_long$Time_Point))) + # idea  add a space equal to 0 - distance from start to first portion this helps align it to the RMSD plot above, basically just subtract rmsx_long$Time_Point[2] - rmsx_long$Time_Point[1] to get time diff, then take half of it to align it.
   
