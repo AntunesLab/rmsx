@@ -130,7 +130,67 @@ def process_trajectory(
             f'Slice {i + 1}: First frame saved to {coord_path}, frames {start_frame} to {end_frame} saved to {traj_path}'
         )
 
-def analyze_trajectory(output_dir, chain_sele=None):
+# def analyze_trajectory(output_dir, chain_sele=None):
+#     """Analyze trajectory files by calculating RMSF and compiling results into a DataFrame."""
+#     all_data = pd.DataFrame()
+#     files_and_directories = os.listdir(output_dir)
+#     sorted_out = sorted(
+#         files_and_directories,
+#         key=lambda filename: [
+#             int(part) if part.isdigit() else part for part in re.split('(\d+)', filename)
+#         ],
+#     )
+#
+#     for filename in sorted_out:
+#         if filename.endswith(".dcd"):
+#             coord_filename = filename.replace('.dcd', '_first_frame.pdb')
+#             if coord_filename in files_and_directories:
+#                 dcd_filepath = os.path.join(output_dir, filename)
+#                 coord_filepath = os.path.join(output_dir, coord_filename)
+#                 print(f"Processing {dcd_filepath} with {coord_filepath}")
+#
+#                 u = mda.Universe(coord_filepath, dcd_filepath)
+#                 selection_str = "protein and name CA"
+#                 if chain_sele:
+#                     selection_str += f" and segid {chain_sele}"
+#                 protein = u.select_atoms(selection_str)
+#
+#                 rmsf_analysis = RMSF(protein)
+#                 rmsf_analysis.run()
+#
+#                 df = pd.DataFrame(
+#                     {filename: rmsf_analysis.rmsf},
+#                     index=[residue.resid for residue in protein.residues],
+#                 )
+#                 all_data = (
+#                     pd.concat([all_data, df], axis=1)
+#                     if not all_data.empty
+#                     else df
+#                 )
+#
+#     if not all_data.empty:
+#         u = mda.Universe(
+#             os.path.join(
+#                 output_dir, sorted_out[0].replace('.dcd', '_first_frame.pdb')
+#             )
+#         )
+#         selection_str = "protein and name CA"
+#         if chain_sele:
+#             selection_str += f" and segid {chain_sele}"
+#         protein = u.select_atoms(selection_str)
+#         all_data.insert(
+#             0, 'ChainID', [residue.atoms[0].segid for residue in protein.residues]
+#         )
+#         all_data.insert(
+#             0, 'ResidueID', [residue.resid for residue in protein.residues]
+#         )
+#
+#     return all_data
+
+import multiprocessing
+from functools import partial
+
+def analyze_trajectory(output_dir, chain_sele=None, n_jobs=2):
     """Analyze trajectory files by calculating RMSF and compiling results into a DataFrame."""
     all_data = pd.DataFrame()
     files_and_directories = os.listdir(output_dir)
@@ -141,6 +201,12 @@ def analyze_trajectory(output_dir, chain_sele=None):
         ],
     )
 
+    selection_str = "protein and name CA"
+    if chain_sele:
+        selection_str += f" and segid {chain_sele}"
+
+    # Prepare list of files to process
+    trajectories = []
     for filename in sorted_out:
         if filename.endswith(".dcd"):
             coord_filename = filename.replace('.dcd', '_first_frame.pdb')
@@ -149,34 +215,17 @@ def analyze_trajectory(output_dir, chain_sele=None):
                 coord_filepath = os.path.join(output_dir, coord_filename)
                 print(f"Processing {dcd_filepath} with {coord_filepath}")
 
-                u = mda.Universe(coord_filepath, dcd_filepath)
-                selection_str = "protein and name CA"
-                if chain_sele:
-                    selection_str += f" and segid {chain_sele}"
-                protein = u.select_atoms(selection_str)
+                trajectories.append((coord_filepath, dcd_filepath, selection_str, filename))
 
-                rmsf_analysis = RMSF(protein)
-                rmsf_analysis.run()
+    if trajectories:
+        with multiprocessing.Pool(processes=n_jobs) as pool:
+            results = pool.starmap(process_trajectory, trajectories)
 
-                df = pd.DataFrame(
-                    {filename: rmsf_analysis.rmsf},
-                    index=[residue.resid for residue in protein.residues],
-                )
-                all_data = (
-                    pd.concat([all_data, df], axis=1)
-                    if not all_data.empty
-                    else df
-                )
+        all_data = pd.concat(results, axis=1)
 
-    if not all_data.empty:
-        u = mda.Universe(
-            os.path.join(
-                output_dir, sorted_out[0].replace('.dcd', '_first_frame.pdb')
-            )
-        )
-        selection_str = "protein and name CA"
-        if chain_sele:
-            selection_str += f" and segid {chain_sele}"
+        # Get ChainID and ResidueID from the first coord file
+        coord_filepath = os.path.join(output_dir, sorted_out[0].replace('.dcd', '_first_frame.pdb'))
+        u = mda.Universe(coord_filepath)
         protein = u.select_atoms(selection_str)
         all_data.insert(
             0, 'ChainID', [residue.atoms[0].segid for residue in protein.residues]
@@ -185,7 +234,11 @@ def analyze_trajectory(output_dir, chain_sele=None):
             0, 'ResidueID', [residue.resid for residue in protein.residues]
         )
 
-    return all_data
+        return all_data
+    else:
+        return pd.DataFrame()
+
+
 
 def save_data(all_data, output_dir, trajectory_file):
     """Save the compiled DataFrame to a CSV file."""
