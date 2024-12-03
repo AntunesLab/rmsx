@@ -14,6 +14,12 @@ import numpy as np  # Import numpy for unique operations
 import pkg_resources  # for managing the R scripts
 import plotly.graph_objects as go
 
+import importlib.resources as pkg_resources
+from pathlib import Path
+import logging
+
+
+
 # still testing:
 # Import the run_flipbook function from flipbook.py
 from .flipbook import run_flipbook  # Use a relative import
@@ -338,6 +344,7 @@ def create_r_plot(
         display(Image(filename=image_files[0]))
     else:
         print("No PNG files found in the specified directory.")
+
 
 def update_pdb_bfactor(coord_file, rmsx_df):
     # Extract slice number from the file name
