@@ -15,12 +15,19 @@ setup(
     install_requires=[
         'MDAnalysis',
         'pandas',
-        # Include other dependencies, not sure what else i need
+        'python-setuptools'
+        # Include other dependencies, i think that should be all of it.,
     ],
+    extras_require={
+        'viz': [
+            'plotly>=4.14.3'
+        ],
+
+    },
     scripts=['scripts/rmsx_cli.py'],
     classifiers=[
         'Programming Language :: Python :: 3',
-        'License :: OSI Approved :: MIT License',  # Choose appropriate license
+        'License :: OSI Approved :: MIT License',  # Choose appropriate license ...
         'Operating System :: OS Independent',
     ],
     python_requires='>=3.6',

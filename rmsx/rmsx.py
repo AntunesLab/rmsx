@@ -417,7 +417,13 @@ def plot_rmsx_surface(
     Returns:
     - None: Displays the interactive plot.
     """
-    import plotly.graph_objects as go
+# added in case issues come up with plotly so package as a whole still works.
+    try:
+        import plotly.graph_objects as go
+    except ImportError:
+        print("Plotly is not installed. Visualization features are disabled.")
+        return
+
     import pandas as pd
     import numpy as np
     import os
