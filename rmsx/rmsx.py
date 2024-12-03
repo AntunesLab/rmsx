@@ -19,7 +19,6 @@ from pathlib import Path
 import logging
 
 
-
 # still testing:
 # Import the run_flipbook function from flipbook.py
 from .flipbook import run_flipbook  # Use a relative import
@@ -300,6 +299,57 @@ def calculate_rmsf(
         rmsf_whole_traj.to_csv(rmsf_output_filepath, index=False)
     return rmsf_output_filepath
 
+# def create_r_plot(
+#         rmsx_csv,
+#         rmsd_csv,
+#         rmsf_csv,
+#         rscript_executable='Rscript',
+#         interpolate=False,
+#         triple=False,
+# ):
+#     # Get the path to the R script within the package
+#     r_script_path = pkg_resources.resource_filename(
+#         'rmsx', 'r_scripts/triple_plot_rmsx.R'
+#     )
+#     # Convert Python boolean to a string recognizable by R
+#     interpolate_str = 'TRUE' if interpolate else 'FALSE'
+#     triple_str = 'TRUE' if triple else 'FALSE'
+#
+#     # Call the R script with subprocess
+#     result = subprocess.run(
+#         [
+#             rscript_executable,
+#             r_script_path,
+#             rmsx_csv,
+#             rmsd_csv,
+#             rmsf_csv,
+#             interpolate_str,
+#             triple_str,
+#         ]
+#     )
+#
+#     if result.returncode == 0:
+#         print("R script executed successfully.")
+#     else:
+#         print("R script execution failed.")
+#
+#     # Search for PNG files in the directory
+#     file_path = rmsx_csv
+#     directory = os.path.dirname(file_path)
+#     image_files = glob.glob(os.path.join(directory, '*.png'))
+#
+#     # Display the first matched image
+#     if image_files:
+#         display(Image(filename=image_files[0]))
+#     else:
+#         print("No PNG files found in the specified directory.")
+#
+
+# not sure this is needed
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 def create_r_plot(
         rmsx_csv,
         rmsd_csv,
@@ -308,42 +358,86 @@ def create_r_plot(
         interpolate=False,
         triple=False,
 ):
-    # Get the path to the R script within the package
-    r_script_path = pkg_resources.resource_filename(
-        'rmsx', 'r_scripts/triple_plot_rmsx.R'
-    )
+    """
+    Generates an R plot by invoking an R script with the provided CSV files.
+
+    Args:
+        rmsx_csv (str): Path to the RMSX CSV file.
+        rmsd_csv (str): Path to the RMSD CSV file.
+        rmsf_csv (str): Path to the RMSF CSV file.
+        rscript_executable (str, optional): Path to the Rscript executable. Defaults to 'Rscript'.
+        interpolate (bool, optional): Whether to enable interpolation. Defaults to False.
+        triple (bool, optional): Whether to enable triple plotting. Defaults to False.
+
+    Returns:
+        None
+    """
     # Convert Python boolean to a string recognizable by R
     interpolate_str = 'TRUE' if interpolate else 'FALSE'
     triple_str = 'TRUE' if triple else 'FALSE'
 
-    # Call the R script with subprocess
-    result = subprocess.run(
-        [
-            rscript_executable,
-            r_script_path,
-            rmsx_csv,
-            rmsd_csv,
-            rmsf_csv,
-            interpolate_str,
-            triple_str,
-        ]
-    )
+    try:
+        # Access the R script using importlib.resources
+        with pkg_resources.path('rmsx.r_scripts', 'triple_plot_rmsx.R') as r_script_path:
+            r_script_path = r_script_path.resolve()
 
-    if result.returncode == 0:
-        print("R script executed successfully.")
-    else:
-        print("R script execution failed.")
+            if not r_script_path.is_file():
+                logger.error(f"R script not found at {r_script_path}.")
+                return
 
-    # Search for PNG files in the directory
-    file_path = rmsx_csv
-    directory = os.path.dirname(file_path)
-    image_files = glob.glob(os.path.join(directory, '*.png'))
+            logger.info(f"Found R script at {r_script_path}.")
 
-    # Display the first matched image
-    if image_files:
-        display(Image(filename=image_files[0]))
-    else:
-        print("No PNG files found in the specified directory.")
+            # Call the R script with subprocess
+            result = subprocess.run(
+                [
+                    rscript_executable,
+                    str(r_script_path),
+                    rmsx_csv,
+                    rmsd_csv,
+                    rmsf_csv,
+                    interpolate_str,
+                    triple_str,
+                ],
+                capture_output=True,
+                text=True
+            )
+
+            if result.returncode == 0:
+                logger.info("R script executed successfully.")
+                logger.debug(f"R script output:\n{result.stdout}")
+            else:
+                logger.error("R script execution failed.")
+                logger.error(f"R script stderr:\n{result.stderr}")
+                return
+
+    except FileNotFoundError:
+        logger.error(f"Rscript executable not found: {rscript_executable}. Please ensure R is installed and 'Rscript' is in your PATH.")
+        return
+    except Exception as e:
+        logger.exception(f"An unexpected error occurred: {e}")
+        return
+
+    # Search for PNG files in the directory of rmsx_csv
+    try:
+        rmsx_path = Path(rmsx_csv).resolve()
+        directory = rmsx_path.parent
+
+        if not directory.is_dir():
+            logger.error(f"The directory does not exist: {directory}")
+            return
+
+        image_files = list(directory.glob('*.png'))
+
+        if image_files:
+            first_image = image_files[0]
+            logger.info(f"Displaying image: {first_image}")
+            display(Image(filename=str(first_image)))
+        else:
+            logger.warning("No PNG files found in the specified directory.")
+
+    except Exception as e:
+        logger.exception(f"An error occurred while searching for PNG files: {e}")
+
 
 
 def update_pdb_bfactor(coord_file, rmsx_df):
