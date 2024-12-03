@@ -15,7 +15,7 @@ setup(
     install_requires=[
         'MDAnalysis',
         'pandas',
-        'python-setuptools'
+        'setuptools'
         # Include other dependencies, i think that should be all of it.,
     ],
     extras_require={
