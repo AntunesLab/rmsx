@@ -14,6 +14,10 @@ import numpy as np  # Import numpy for unique operations
 import pkg_resources  # for managing the R scripts
 import plotly.graph_objects as go
 
+# still testing:
+# Import the run_flipbook function from flipbook.py
+from .flipbook import run_flipbook  # Use a relative import
+
 def initialize_environment():
     """Print the Python executable path and current working directory."""
     print(sys.executable)
@@ -130,67 +134,7 @@ def process_trajectory(
             f'Slice {i + 1}: First frame saved to {coord_path}, frames {start_frame} to {end_frame} saved to {traj_path}'
         )
 
-# def analyze_trajectory(output_dir, chain_sele=None):
-#     """Analyze trajectory files by calculating RMSF and compiling results into a DataFrame."""
-#     all_data = pd.DataFrame()
-#     files_and_directories = os.listdir(output_dir)
-#     sorted_out = sorted(
-#         files_and_directories,
-#         key=lambda filename: [
-#             int(part) if part.isdigit() else part for part in re.split('(\d+)', filename)
-#         ],
-#     )
-#
-#     for filename in sorted_out:
-#         if filename.endswith(".dcd"):
-#             coord_filename = filename.replace('.dcd', '_first_frame.pdb')
-#             if coord_filename in files_and_directories:
-#                 dcd_filepath = os.path.join(output_dir, filename)
-#                 coord_filepath = os.path.join(output_dir, coord_filename)
-#                 print(f"Processing {dcd_filepath} with {coord_filepath}")
-#
-#                 u = mda.Universe(coord_filepath, dcd_filepath)
-#                 selection_str = "protein and name CA"
-#                 if chain_sele:
-#                     selection_str += f" and segid {chain_sele}"
-#                 protein = u.select_atoms(selection_str)
-#
-#                 rmsf_analysis = RMSF(protein)
-#                 rmsf_analysis.run()
-#
-#                 df = pd.DataFrame(
-#                     {filename: rmsf_analysis.rmsf},
-#                     index=[residue.resid for residue in protein.residues],
-#                 )
-#                 all_data = (
-#                     pd.concat([all_data, df], axis=1)
-#                     if not all_data.empty
-#                     else df
-#                 )
-#
-#     if not all_data.empty:
-#         u = mda.Universe(
-#             os.path.join(
-#                 output_dir, sorted_out[0].replace('.dcd', '_first_frame.pdb')
-#             )
-#         )
-#         selection_str = "protein and name CA"
-#         if chain_sele:
-#             selection_str += f" and segid {chain_sele}"
-#         protein = u.select_atoms(selection_str)
-#         all_data.insert(
-#             0, 'ChainID', [residue.atoms[0].segid for residue in protein.residues]
-#         )
-#         all_data.insert(
-#             0, 'ResidueID', [residue.resid for residue in protein.residues]
-#         )
-#
-#     return all_data
-
-import multiprocessing
-from functools import partial
-
-def analyze_trajectory(output_dir, chain_sele=None, n_jobs=2):
+def analyze_trajectory(output_dir, chain_sele=None):
     """Analyze trajectory files by calculating RMSF and compiling results into a DataFrame."""
     all_data = pd.DataFrame()
     files_and_directories = os.listdir(output_dir)
@@ -201,12 +145,6 @@ def analyze_trajectory(output_dir, chain_sele=None, n_jobs=2):
         ],
     )
 
-    selection_str = "protein and name CA"
-    if chain_sele:
-        selection_str += f" and segid {chain_sele}"
-
-    # Prepare list of files to process
-    trajectories = []
     for filename in sorted_out:
         if filename.endswith(".dcd"):
             coord_filename = filename.replace('.dcd', '_first_frame.pdb')
@@ -215,17 +153,34 @@ def analyze_trajectory(output_dir, chain_sele=None, n_jobs=2):
                 coord_filepath = os.path.join(output_dir, coord_filename)
                 print(f"Processing {dcd_filepath} with {coord_filepath}")
 
-                trajectories.append((coord_filepath, dcd_filepath, selection_str, filename))
+                u = mda.Universe(coord_filepath, dcd_filepath)
+                selection_str = "protein and name CA"
+                if chain_sele:
+                    selection_str += f" and segid {chain_sele}"
+                protein = u.select_atoms(selection_str)
 
-    if trajectories:
-        with multiprocessing.Pool(processes=n_jobs) as pool:
-            results = pool.starmap(process_trajectory, trajectories)
+                rmsf_analysis = RMSF(protein)
+                rmsf_analysis.run()
 
-        all_data = pd.concat(results, axis=1)
+                df = pd.DataFrame(
+                    {filename: rmsf_analysis.rmsf},
+                    index=[residue.resid for residue in protein.residues],
+                )
+                all_data = (
+                    pd.concat([all_data, df], axis=1)
+                    if not all_data.empty
+                    else df
+                )
 
-        # Get ChainID and ResidueID from the first coord file
-        coord_filepath = os.path.join(output_dir, sorted_out[0].replace('.dcd', '_first_frame.pdb'))
-        u = mda.Universe(coord_filepath)
+    if not all_data.empty:
+        u = mda.Universe(
+            os.path.join(
+                output_dir, sorted_out[0].replace('.dcd', '_first_frame.pdb')
+            )
+        )
+        selection_str = "protein and name CA"
+        if chain_sele:
+            selection_str += f" and segid {chain_sele}"
         protein = u.select_atoms(selection_str)
         all_data.insert(
             0, 'ChainID', [residue.atoms[0].segid for residue in protein.residues]
@@ -234,11 +189,7 @@ def analyze_trajectory(output_dir, chain_sele=None, n_jobs=2):
             0, 'ResidueID', [residue.resid for residue in protein.residues]
         )
 
-        return all_data
-    else:
-        return pd.DataFrame()
-
-
+    return all_data
 
 def save_data(all_data, output_dir, trajectory_file):
     """Save the compiled DataFrame to a CSV file."""
@@ -648,7 +599,7 @@ def combine_pdb_files(chain_dirs, combined_dir):
 
             print(f"Combined {pdb_file} from all chains into {combined_pdb_file}")
 
-def find_and_combine_pdb_files(output_dir, combine_pdb_files_func):
+def find_and_combine_pdb_files(output_dir):
     # Find directories ending with '_rmsx' and not starting with "combined"
     directories_with_dir = [
         os.path.join(output_dir, d)
@@ -664,7 +615,7 @@ def find_and_combine_pdb_files(output_dir, combine_pdb_files_func):
     combined_dir = os.path.join(output_dir, "combined")
 
     # Call the combine_pdb_files function on the found directories
-    combine_pdb_files_func(directories_with_dir, combined_dir)
+    combine_pdb_files(directories_with_dir, combined_dir)
 
 def run_rmsx(
         topology_file,
@@ -764,6 +715,55 @@ def run_rmsx(
                 rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple
             )
 
+
+# updated to return dir to make it easier to run flipbook with it.
+# def all_chain_rmsx(
+#         topology_file,
+#         trajectory_file,
+#         output_dir=None,
+#         slice_size=5,
+#         rscript_executable='Rscript',
+#         verbose=True,
+#         interpolate=True,
+#         triple=False,
+#         overwrite=False,
+# ):
+#     u_top = mda.Universe(topology_file)
+#     # Extract unique chain IDs (SEGIDs)
+#     chain_ids = np.unique(u_top.atoms.segids)
+#     # Get the number of residues in each chain
+#     chain_info = {}
+#     for chain in chain_ids:
+#         chain_atoms = u_top.select_atoms(f'segid {chain}')
+#         num_residues = len(chain_atoms.residues)
+#         chain_info[chain] = num_residues
+#
+#     for chain in chain_ids:
+#         run_rmsx(
+#             topology_file,
+#             trajectory_file,
+#             output_dir,
+#             slice_size,
+#             rscript_executable,
+#             verbose,
+#             interpolate,
+#             triple,
+#             chain_sele=chain,
+#             overwrite=overwrite,
+#         )
+#
+#     print(f'Ran chains for {chain_ids}')
+#
+#     # Assuming 'combined' directory is created here
+#     print(f"current working directory {os.getcwd()}")
+#
+#     find_and_combine_pdb_files(output_dir)
+#     print("Combined all RMSX values across chains into one PDB per slice")
+#
+#     combined_dir = os.path.join(output_dir, "combined")
+#     return combined_dir
+
+# updated to return dir to make it easier to run flipbook with it.
 def all_chain_rmsx(
         topology_file,
         trajectory_file,
@@ -801,5 +801,64 @@ def all_chain_rmsx(
 
     print(f'Ran chains for {chain_ids}')
 
-    find_and_combine_pdb_files(output_dir, combine_pdb_files)
-    print("Combined all RMSX values across chains into one PDB per slice")
+    # without this update it would return an empty combined folder.
+    if len(chain_ids) > 1:
+
+    # Assuming 'combined' directory is created here
+        find_and_combine_pdb_files(output_dir, combine_pdb_files)
+        print("Combined all RMSX values across chains into one PDB per slice")
+
+        combined_dir = os.path.join(output_dir, "combined")
+        return combined_dir
+
+    else: # a lazy copy-paste but it should work.
+        directories_with_dir = [
+            os.path.join(output_dir, d)
+            for d in os.listdir(output_dir)
+            if d.endswith('_rmsx')
+               and not d.startswith("combined")
+               and os.path.isdir(os.path.join(output_dir, d))
+        ]
+        print(f" Only one directory found, returning: {directories_with_dir[0]}")
+        return directories_with_dir[0]
+
+
+
+def run_rmsx_flipbook(
+        topology_file,
+        trajectory_file,
+        output_dir=None,
+        slice_size=5,
+        rscript_executable='Rscript',
+        verbose=True,
+        interpolate=True,
+        triple=False,
+        overwrite=False,
+        flipbook_palette='viridis',
+        flipbook_min_bfactor=None,
+        flipbook_max_bfactor=None
+):
+    # Run the RMSX analysis
+    combined_dir = all_chain_rmsx(
+        topology_file=topology_file,
+        trajectory_file=trajectory_file,
+        output_dir=output_dir,
+        slice_size=slice_size,
+        rscript_executable=rscript_executable,
+        verbose=verbose,
+        interpolate=interpolate,
+        triple=triple,
+        overwrite=overwrite,
+    )
+
+    # Run flipbook.py functionality using run_flipbook
+    run_flipbook(
+        directory=combined_dir,
+        palette=flipbook_palette,
+        min_bfactor=flipbook_min_bfactor,
+        max_bfactor=flipbook_max_bfactor
+    )
+
+    print("Full analysis including FlipBook visualization completed successfully.")
+
+
