@@ -11,8 +11,13 @@ from contextlib import redirect_stdout
 import glob
 import shutil
 import numpy as np  # Import numpy for unique operations
-import pkg_resources  # for managing the R scripts
+import pkg_resources  # for managing the R scripts, also tried path lib later. might be redundent now.
 import plotly.graph_objects as go
+
+
+from pathlib import Path
+
+
 
 # still testing:
 # Import the run_flipbook function from flipbook.py
@@ -438,11 +443,7 @@ def create_r_plot(
 #     else:
 #         print("No PNG files found in the specified directory.")
 
-# rmsx/rmsx.py
 
-import subprocess
-from pathlib import Path
-from IPython.display import Image, display
 
 def create_r_plot(
         rmsx_csv,
