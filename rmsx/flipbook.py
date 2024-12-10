@@ -216,7 +216,7 @@ def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split('(\d+)', s)]
 
 
-def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=None):
+def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=None, spacingFactor = 1):
     """
     Executes the flipbook functionality to open PDB files in ChimeraX with specified settings.
 
@@ -296,14 +296,15 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
         "define axis",
         f"view #{axis_id} zalign #{axis_id}",
         f"turn x 90 center #{axis_id}",
-        f"close #{axis_id}",
         "color byattribute bfactor",
         "worm bfactor",  # Uncomment to apply worm effect
         "light soft multishadow 128",
         "graphics silhouettes true",
         "set bgColor white",  # Changed from light blue to white
         color_command,  # Dynamically generated color command
-        f"tile all columns {columns} spacingFactor 1"  # gives less space than gui
+        f"tile all columns {columns} spacingFactor {spacingFactor}",  #   gives less space than gui?
+        f"close #{axis_id}"  # lets try moving this later to see if it helps with the size alignment
+
     ]
 
     # Combine all commands separated by semicolons

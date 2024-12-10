@@ -307,96 +307,96 @@ from pathlib import Path
 import glob
 from IPython.display import Image, display
 
-def create_r_plot(
-        rmsx_csv,
-        rmsd_csv,
-        rmsf_csv,
-        rscript_executable='Rscript',
-        interpolate=False,
-        triple=False,
-):
-    """
-    Generates an R plot by invoking an R script with the provided CSV files.
-
-    Args:
-        rmsx_csv (str): Path to the RMSX CSV file.
-        rmsd_csv (str): Path to the RMSD CSV file.
-        rmsf_csv (str): Path to the RMSF CSV file.
-        rscript_executable (str, optional): Path to the Rscript executable. Defaults to 'Rscript'.
-        interpolate (bool, optional): Whether to enable interpolation. Defaults to False.
-        triple (bool, optional): Whether to enable triple plotting. Defaults to False.
-
-    Returns:
-        None
-    """
-    # Convert Python boolean to a string recognizable by R
-    interpolate_str = 'TRUE' if interpolate else 'FALSE'
-    triple_str = 'TRUE' if triple else 'FALSE'
-
-    try:
-        # Determine the directory of the current script
-        current_dir = Path(__file__).parent.resolve()
-
-        # Construct the path to the R script
-        r_script_path = current_dir / 'r_scripts' / 'triple_plot_rmsx.R'
-
-        if not r_script_path.is_file():
-            print(f"Error: R script not found at {r_script_path}.")
-            return
-
-        print(f"Found R script at {r_script_path}.")
-
-        # Call the R script with subprocess
-        result = subprocess.run(
-            [
-                rscript_executable,
-                str(r_script_path),
-                rmsx_csv,
-                rmsd_csv,
-                rmsf_csv,
-                interpolate_str,
-                triple_str,
-            ],
-            capture_output=True,
-            text=True
-        )
-
-        if result.returncode == 0:
-            print("R script executed successfully.")
-            # Optionally, print the R script's output
-            # print(result.stdout)
-        else:
-            print("R script execution failed.")
-            print(f"Error Output:\n{result.stderr}")
-            return
-
-    except FileNotFoundError:
-        print(f"Error: Rscript executable not found: {rscript_executable}. Please ensure R is installed and 'Rscript' is in your PATH.")
-        return
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        return
-
-    # Search for PNG files in the directory of rmsx_csv
-    try:
-        rmsx_path = Path(rmsx_csv).resolve()
-        directory = rmsx_path.parent
-
-        if not directory.is_dir():
-            print(f"Error: The directory does not exist: {directory}")
-            return
-
-        image_files = list(directory.glob('*.png'))
-
-        if image_files:
-            first_image = image_files[0]
-            print(f"Displaying image: {first_image}")
-            display(Image(filename=str(first_image)))
-        else:
-            print("No PNG files found in the specified directory.")
-
-    except Exception as e:
-        print(f"An error occurred while searching for PNG files: {e}")
+# def create_r_plot(
+#         rmsx_csv,
+#         rmsd_csv,
+#         rmsf_csv,
+#         rscript_executable='Rscript',
+#         interpolate=False,
+#         triple=False,
+# ):
+#     """
+#     Generates an R plot by invoking an R script with the provided CSV files.
+#
+#     Args:
+#         rmsx_csv (str): Path to the RMSX CSV file.
+#         rmsd_csv (str): Path to the RMSD CSV file.
+#         rmsf_csv (str): Path to the RMSF CSV file.
+#         rscript_executable (str, optional): Path to the Rscript executable. Defaults to 'Rscript'.
+#         interpolate (bool, optional): Whether to enable interpolation. Defaults to False.
+#         triple (bool, optional): Whether to enable triple plotting. Defaults to False.
+#
+#     Returns:
+#         None
+#     """
+#     # Convert Python boolean to a string recognizable by R
+#     interpolate_str = 'TRUE' if interpolate else 'FALSE'
+#     triple_str = 'TRUE' if triple else 'FALSE'
+#
+#     try:
+#         # Determine the directory of the current script
+#         current_dir = Path(__file__).parent.resolve()
+#
+#         # Construct the path to the R script
+#         r_script_path = current_dir / 'r_scripts' / 'triple_plot_rmsx.R'
+#
+#         if not r_script_path.is_file():
+#             print(f"Error: R script not found at {r_script_path}.")
+#             return
+#
+#         print(f"Found R script at {r_script_path}.")
+#
+#         # Call the R script with subprocess
+#         result = subprocess.run(
+#             [
+#                 rscript_executable,
+#                 str(r_script_path),
+#                 rmsx_csv,
+#                 rmsd_csv,
+#                 rmsf_csv,
+#                 interpolate_str,
+#                 triple_str,
+#             ],
+#             capture_output=True,
+#             text=True
+#         )
+#
+#         if result.returncode == 0:
+#             print("R script executed successfully.")
+#             # Optionally, print the R script's output
+#             # print(result.stdout)
+#         else:
+#             print("R script execution failed.")
+#             print(f"Error Output:\n{result.stderr}")
+#             return
+#
+#     except FileNotFoundError:
+#         print(f"Error: Rscript executable not found: {rscript_executable}. Please ensure R is installed and 'Rscript' is in your PATH.")
+#         return
+#     except Exception as e:
+#         print(f"An unexpected error occurred: {e}")
+#         return
+#
+#     # Search for PNG files in the directory of rmsx_csv
+#     try:
+#         rmsx_path = Path(rmsx_csv).resolve()
+#         directory = rmsx_path.parent
+#
+#         if not directory.is_dir():
+#             print(f"Error: The directory does not exist: {directory}")
+#             return
+#
+#         image_files = list(directory.glob('*.png'))
+#
+#         if image_files:
+#             first_image = image_files[0]
+#             print(f"Displaying image: {first_image}")
+#             display(Image(filename=str(first_image)))
+#         else:
+#             print("No PNG files found in the specified directory.")
+#
+#     except Exception as e:
+#         print(f"An error occurred while searching for PNG files: {e}")
 
 
 # def create_r_plot(
@@ -453,6 +453,7 @@ def create_r_plot(
         rscript_executable='Rscript',
         interpolate=False,
         triple=False,
+        palette= "plasma"
 ):
     """
     Generates an R plot by invoking an R script with the provided CSV files.
@@ -499,6 +500,7 @@ def create_r_plot(
                 rmsf_csv,
                 interpolate_str,
                 triple_str,
+                palette
             ],
             capture_output=True,
             text=True
@@ -838,6 +840,7 @@ def run_rmsx(
         triple=False,
         chain_sele=None,
         overwrite=False,
+        palette="viridis"
 ):
     # Initialize environment and set up output directory
     initialize_environment()
@@ -907,7 +910,7 @@ def run_rmsx(
         print("Generating plots...")
         print("This may take several minutes the first time it is run.")
         create_r_plot(
-            rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple
+            rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple, palette
         )
     else:
         with open(os.devnull, 'w') as f, redirect_stdout(f):
@@ -924,7 +927,7 @@ def run_rmsx(
             update_all_pdb_bfactors(rmsx_csv)
         with open(os.devnull, 'w') as f, redirect_stdout(f):
             create_r_plot(
-                rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple
+                rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple, palette
             )
 
 
@@ -986,6 +989,7 @@ def all_chain_rmsx(
         interpolate=True,
         triple=False,
         overwrite=False,
+        palette='viridis'
 ):
     u_top = mda.Universe(topology_file)
     # Extract unique chain IDs (SEGIDs)
@@ -1009,6 +1013,7 @@ def all_chain_rmsx(
             triple,
             chain_sele=chain,
             overwrite=overwrite,
+            palette=palette
         )
 
     print(f'Ran chains for {chain_ids}')
@@ -1046,9 +1051,10 @@ def run_rmsx_flipbook(
         interpolate=True,
         triple=False,
         overwrite=False,
-        flipbook_palette='viridis',
+        palette='viridis',
         flipbook_min_bfactor=None,
-        flipbook_max_bfactor=None
+        flipbook_max_bfactor=None,
+        spacingFactor="1"
 ):
     # Run the RMSX analysis
     combined_dir = all_chain_rmsx(
@@ -1061,16 +1067,19 @@ def run_rmsx_flipbook(
         interpolate=interpolate,
         triple=triple,
         overwrite=overwrite,
+        palette=palette
     )
 
     # Run flipbook.py functionality using run_flipbook
     run_flipbook(
         directory=combined_dir,
-        palette=flipbook_palette,
+        palette=palette,
         min_bfactor=flipbook_min_bfactor,
-        max_bfactor=flipbook_max_bfactor
+        max_bfactor=flipbook_max_bfactor,
+        spacingFactor=spacingFactor
     )
 
     print("Full analysis including FlipBook visualization completed successfully.")
 
 
+# would like to remove the dcd files when i am done with them by default
