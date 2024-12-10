@@ -135,7 +135,7 @@ plot_rmsx <- function(rmsx_long, interpolate, palette) {
     theme(legend.position = "left")  + # Move legend to the left
 
     # theme(plot.margin = unit(c(5.5, 5.5, 5.5, 5.5), "points")) +  # Ensure margins match
-    labs(x = "Time", y = "Residue", fill= "RMSX")
+    labs(x = "Time (ns)", y = "Residue (Index)", fill= "RMSX")
   rmsx_plot
   #
 

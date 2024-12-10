@@ -1,3 +1,4 @@
+
 import warnings  # Import warnings first to suppress specific warnings before other imports
 
 # Suppress the specific MDAnalysis warning about 'formalcharges'
@@ -68,7 +69,7 @@ def setup_directory(output_dir, overwrite=False):
         print(
             f"Process terminated by user. The directory '{output_dir}' will not be overwritten."
         )
-        sys.exit(1)  # Exit the script if the user does not want to overwrite
+        raise RuntimeError("User chose not to overwrite the existing directory.")
 
 
 def setup_universe(topology_file, trajectory_file):
@@ -110,16 +111,6 @@ def process_rmsx_by_slice_size(topology_file, trajectory_file, output_dir=None, 
 def process_trajectory_slices_by_size(u, output_dir, total_size, slice_size, chain_sele=None):
     """
     Slice the trajectory based on a fixed number of frames per slice.
-
-    Parameters:
-    - u (MDAnalysis.Universe): The MDAnalysis Universe object.
-    - output_dir (str): Directory to save outputs.
-    - total_size (int): Total number of frames in the trajectory.
-    - slice_size (int): Number of frames per slice.
-    - chain_sele (str): Specific chain selection.
-
-    Returns:
-    - pd.DataFrame: Combined RMSF data across all slices.
     """
     if total_size % slice_size != 0:
         print(
@@ -151,11 +142,9 @@ def process_trajectory_slices_by_size(u, output_dir, total_size, slice_size, cha
             coord_writer.write(protein)
         print(f"First frame of slice {i + 1} written to {coord_path}")
 
-        # Compute RMSF for this slice of frames
         rmsf_calc = RMSF(protein)
         rmsf_calc.run(start=start_frame, stop=end_frame)
 
-        # Store RMSF data
         df = pd.DataFrame(
             {f"slice_{i + 1}.dcd": rmsf_calc.results.rmsf},
             index=[residue.resid for residue in protein.residues],
@@ -183,13 +172,6 @@ def process_trajectory_slices_by_size(u, output_dir, total_size, slice_size, cha
 def process_rmsx_by_num_slices(topology_file, trajectory_file, output_dir=None, num_slices=5, chain_sele=None):
     """
     Process RMSx by specifying the number of slices.
-
-    Parameters:
-    - topology_file (str): Path to the topology file (e.g., PDB, PSF).
-    - trajectory_file (str): Path to the trajectory file.
-    - output_dir (str): Directory to save outputs. If None, defaults based on topology file name.
-    - num_slices (int): Total number of slices to divide the trajectory into.
-    - chain_sele (str): Specific chain selection (e.g., 'A'). If None, selects all chains.
     """
     initialize_environment()
     if output_dir is None:
@@ -214,16 +196,6 @@ def process_rmsx_by_num_slices(topology_file, trajectory_file, output_dir=None, 
 def process_trajectory_slices_by_num(u, output_dir, total_size, num_slices, chain_sele=None):
     """
     Slice the trajectory into a specific number of slices, distributing frames as evenly as possible.
-
-    Parameters:
-    - u (MDAnalysis.Universe): The MDAnalysis Universe object.
-    - output_dir (str): Directory to save outputs.
-    - total_size (int): Total number of frames in the trajectory.
-    - num_slices (int): Number of slices to divide the trajectory into.
-    - chain_sele (str): Specific chain selection.
-
-    Returns:
-    - pd.DataFrame: Combined RMSF data across all slices.
     """
     if u.trajectory.n_frames != total_size:
         raise ValueError(
@@ -231,11 +203,9 @@ def process_trajectory_slices_by_num(u, output_dir, total_size, num_slices, chai
         )
     print(f'The trajectory has {u.trajectory.n_frames} frames.')
 
-    # Determine slice sizes
     base_size = total_size // num_slices
     remainder = total_size % num_slices
 
-    # Slice sizes: first `remainder` slices get base_size+1 frames, the rest get base_size frames
     slice_sizes = [(base_size + 1) if i < remainder else base_size for i in range(num_slices)]
 
     print("Number of slices:", num_slices)
@@ -255,20 +225,17 @@ def process_trajectory_slices_by_num(u, output_dir, total_size, num_slices, chai
         end_frame = current_start + size  # end_frame is one past the last frame index for slicing
         current_start += size
 
-        # Write first-frame PDB of the slice
         u.trajectory[start_frame]
         coord_path = os.path.join(output_dir, f'slice_{i + 1}_first_frame.pdb')
         with mda.Writer(coord_path, protein.n_atoms, multiframe=False) as coord_writer:
             coord_writer.write(protein)
-        print(f"First frame of slice {i + 1} written to {coord_path}")
+        print(f"First frame of slice {i+1} written to {coord_path}")
 
-        # Compute RMSF for this slice of frames
         rmsf_calc = RMSF(protein)
         rmsf_calc.run(start=start_frame, stop=end_frame)
 
-        # Store RMSF data
         df = pd.DataFrame(
-            {f"slice_{i + 1}.dcd": rmsf_calc.results.rmsf},
+            {f"slice_{i+1}.dcd": rmsf_calc.results.rmsf},
             index=[residue.resid for residue in protein.residues],
         )
 
@@ -703,23 +670,6 @@ def run_rmsx(
         overwrite=False,
         palette="viridis"
 ):
-    """
-    Run the RMSx analysis using either slice_size or num_slices.
-
-    Parameters:
-    - topology_file (str): Path to the topology file (e.g., PDB, PSF).
-    - trajectory_file (str): Path to the trajectory file.
-    - output_dir (str): Directory to save outputs. If None, defaults based on topology file name.
-    - num_slices (int): Total number of slices to divide the trajectory into. If specified, overrides slice_size.
-    - slice_size (int): Number of frames per slice. Used if num_slices is None.
-    - rscript_executable (str): Path to the Rscript executable.
-    - verbose (bool): Whether to print detailed output.
-    - interpolate (bool): Whether to interpolate data in plots.
-    - triple (bool): Specific parameter for plotting (context-specific).
-    - chain_sele (str): Specific chain selection (e.g., 'A'). If None, prompts the user to select.
-    - overwrite (bool): Whether to overwrite existing output directories without prompting.
-    - palette (str): Color palette for plotting.
-    """
     initialize_environment()
     if output_dir is None:
         base_name = os.path.splitext(os.path.basename(topology_file))[0]
@@ -745,12 +695,12 @@ def run_rmsx(
         ).strip()
         if selected_chain not in chain_ids:
             print(f"Chain '{selected_chain}' is not available in the topology file.")
-            sys.exit(1)
+            raise RuntimeError("Selected chain is not available in the topology.")
         chain_sele = selected_chain
     else:
         if chain_sele not in chain_ids:
             print(f"Chain '{chain_sele}' is not available in the topology file.")
-            sys.exit(1)
+            raise RuntimeError("Selected chain is not available in the topology.")
 
     base_name = os.path.splitext(os.path.basename(topology_file))[0]
     output_dir = os.path.join(output_dir, f"chain_{chain_sele}_rmsx")
@@ -769,7 +719,7 @@ def run_rmsx(
             process_rmsx_by_slice_size(topology_file, trajectory_file, output_dir, slice_size, chain_sele=chain_sele)
         else:
             print("Error: You must specify either num_slices or slice_size.")
-            sys.exit(1)
+            raise RuntimeError("No slicing method specified.")
 
         rmsx_csv = file_namer(output_dir, trajectory_file, "csv")
         print(f"RMSX CSV: {rmsx_csv}")
@@ -799,7 +749,7 @@ def run_rmsx(
                                            chain_sele=chain_sele)
             else:
                 print("Error: You must specify either num_slices or slice_size.")
-                sys.exit(1)
+                raise RuntimeError("No slicing method specified.")
 
             rmsx_csv = file_namer(output_dir, trajectory_file, "csv")
             rmsd_csv = calculate_rmsd(
@@ -829,25 +779,6 @@ def all_chain_rmsx(
         overwrite=False,
         palette='viridis'
 ):
-    """
-    Run RMSx analysis for all chains in the topology file.
-
-    Parameters:
-    - topology_file (str): Path to the topology file (e.g., PDB, PSF).
-    - trajectory_file (str): Path to the trajectory file.
-    - output_dir (str): Directory to save outputs. If None, defaults based on topology file name.
-    - num_slices (int): Total number of slices to divide the trajectory into for each chain. If specified, overrides slice_size.
-    - slice_size (int): Number of frames per slice for each chain. Used if num_slices is None.
-    - rscript_executable (str): Path to the Rscript executable.
-    - verbose (bool): Whether to print detailed output.
-    - interpolate (bool): Whether to interpolate data in plots.
-    - triple (bool): Specific parameter for plotting (context-specific).
-    - overwrite (bool): Whether to overwrite existing output directories without prompting.
-    - palette (str): Color palette for plotting.
-
-    Returns:
-    - str: Path to the combined directory containing all chains' data (if multiple chains).
-    """
     u_top = mda.Universe(topology_file)
     chain_ids = np.unique(u_top.atoms.segids)
 
@@ -872,7 +803,7 @@ def all_chain_rmsx(
     if len(chain_ids) > 1:
         if verbose:
             find_and_combine_pdb_files(output_dir)
-            print("Combined all RMSX values across chains into one PDB per slice.")
+            print("Combined all RMSX values across chains into one PDB per slice")
         else:
             with open(os.devnull, 'w') as f, redirect_stdout(f):
                 find_and_combine_pdb_files(output_dir)
@@ -887,7 +818,7 @@ def all_chain_rmsx(
                and not d.startswith("combined")
                and os.path.isdir(os.path.join(output_dir, d))
         ]
-        print(f"Only one directory found, returning: {directories_with_dir[0]}")
+        print(f" Only one directory found, returning: {directories_with_dir[0]}")
         return directories_with_dir[0]
 
 
@@ -895,7 +826,7 @@ def run_rmsx_flipbook(
         topology_file,
         trajectory_file,
         output_dir=None,
-        num_slices=None,  # Can specify either num_slices or slice_size
+        num_slices=9,  # Can specify either num_slices or slice_size, currently not implemented in the combined version?
         slice_size=None,
         rscript_executable='Rscript',
         verbose=True,
@@ -907,12 +838,6 @@ def run_rmsx_flipbook(
         flipbook_max_bfactor=None,
         spacingFactor="1"
 ):
-    """
-    Run RMSx analysis and generate FlipBook visualization.
-
-    Parameters:
-    - All parameters are passed to `all_chain_rmsx` and `run_flipbook`.
-    """
     combined_dir = all_chain_rmsx(
         topology_file=topology_file,
         trajectory_file=trajectory_file,
@@ -937,4 +862,10 @@ def run_rmsx_flipbook(
 
     print("Full analysis including FlipBook visualization completed successfully.")
 
+# should to test more md file types to make sure there aren't any issues with it telling the duration of the simulation
 # could add hover over to show which time slice it came from
+# allow you to say which frames you want from your simulation (allow you to cut it shorter)
+# could allow it to be seen with RMSX per _ number of frames
+# auto save picture in chimerax- last command could be visible so it could be copy pasted after it was correctly positioned.
+# function that would auto find the files to display given the output_dir path - could be helpful for both the 3d plot but also for run_flipbook on existing dirs
+# auto save  and display image?
