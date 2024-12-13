@@ -868,4 +868,5 @@ def run_rmsx_flipbook(
 # could allow it to be seen with RMSX per _ number of frames
 # auto save picture in chimerax- last command could be visible so it could be copy pasted after it was correctly positioned.
 # function that would auto find the files to display given the output_dir path - could be helpful for both the 3d plot but also for run_flipbook on existing dirs
-# auto save  and display image?
+# auto save and display image?
+# log version of rmsx?

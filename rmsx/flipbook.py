@@ -304,6 +304,7 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
         color_command,  # Dynamically generated color command
         f"tile all columns {columns} spacingFactor {spacingFactor}",  #   gives less space than gui?
         f"close #{axis_id}"  # lets try moving this later to see if it helps with the size alignment
+        f"save {directory}/rmsx_{palette}.png width 2000 height 1000 supersample 3 transparentBackground true"
 
     ]
 
