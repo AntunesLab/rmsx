@@ -378,7 +378,7 @@ def create_r_plot(
         except NameError:
             current_dir = Path.cwd().resolve()
 
-        r_script_path = current_dir / 'r_scripts' / 'triple_plot_rmsx.R'
+        r_script_path = current_dir / 'r_scripts' / 'plot_rmsx.R'
 
         if not r_script_path.is_file():
             print(f"Error: R script not found at {r_script_path}.")

@@ -228,7 +228,7 @@ def calculate_rmsf(pdb_file, dcd_file, output_dir=None, selection='protein and n
 def create_r_plot(rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable='Rscript', interpolate=False, triple=False):
     # r_script_path = os.path.expanduser(r_script_path)
     # Get the path to the R script within the package
-    r_script_path = pkg_resources.resource_filename('rmsx', 'r_scripts/triple_plot_rmsx.R')
+    r_script_path = pkg_resources.resource_filename('rmsx', 'r_scripts/plot_rmsx.R')
     # Convert Python boolean to a string recognizable by R
     interpolate_str = 'TRUE' if interpolate is not None and interpolate else 'FALSE'
     triple_str = 'TRUE' if triple is not None and triple else 'FALSE'
