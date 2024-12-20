@@ -301,7 +301,12 @@ def calculate_rmsd(
         chain_sele=None,
 ):
     u = mda.Universe(topology_file, trajectory_file)
-    ref = mda.Universe(topology_file)
+    # ref = mda.Universe(topology_file,trajectory_file)
+    # ref = mda.Universe(topology_file) problematic?  first or last frame?
+
+    # Assume you already have a universe u loaded with your trajectory:
+    u.trajectory[0]  # Move to the first frame of the trajectory
+    ref = u.copy()  # Create a copy of the current universe state in memory
 
     if chain_sele:
         selection += f" and segid {chain_sele}"
