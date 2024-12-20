@@ -70,27 +70,40 @@ def setup_directory(output_dir, overwrite=False):
         raise RuntimeError("User chose not to overwrite the existing directory.")
 
 
-def process_rmsx_by_slice_size(u, output_dir, slice_size=5, chain_sele=None, trajectory_file=None):
+def process_rmsx_by_slice_size(u, output_dir, start_frame, end_frame, slice_size=5, chain_sele=None, trajectory_file=None):
     """
-    Process RMSx by specifying the number of frames per slice.
+    Process RMSx by specifying the number of frames per slice within a given frame range.
 
     Parameters:
     - u (MDAnalysis.Universe): The MDAnalysis Universe object.
     - output_dir (str): Directory to save outputs.
+    - start_frame (int): The first frame to process.
+    - end_frame (int): The last frame to process (inclusive).
     - slice_size (int): Number of frames per slice.
-    - chain_sele (str): Specific chain selection (e.g., 'A'). If None, selects all chains.
+    - chain_sele (str): Specific chain selection. If None, selects all chains.
     - trajectory_file (str): Path to the trajectory file, used for naming output.
     """
-    total_frames = len(u.trajectory)
-    all_data = process_trajectory_slices_by_size(u, output_dir, total_frames, slice_size, chain_sele)
+    total_size = end_frame - start_frame + 1
+    all_data = process_trajectory_slices_by_size(u, output_dir, total_size, slice_size, chain_sele, start_frame)
 
     # Save the combined data
-    save_data(all_data, output_dir, trajectory_file, u)
+    save_data(all_data, output_dir, trajectory_file, u, frames_used=total_size)
 
 
-def process_trajectory_slices_by_size(u, output_dir, total_size, slice_size, chain_sele=None):
+def process_trajectory_slices_by_size(u, output_dir, total_size, slice_size, chain_sele=None, start_frame=0):
     """
-    Slice the trajectory based on a fixed number of frames per slice.
+    Slice the trajectory based on a fixed number of frames per slice, starting and ending within a specific range.
+
+    Parameters:
+    - u (MDAnalysis.Universe)
+    - output_dir (str)
+    - total_size (int): Number of frames to process
+    - slice_size (int)
+    - chain_sele (str)
+    - start_frame (int): The first frame to process
+
+    Returns:
+    A pandas DataFrame containing RMSF values for each slice.
     """
     if total_size % slice_size != 0:
         print(
@@ -99,9 +112,9 @@ def process_trajectory_slices_by_size(u, output_dir, total_size, slice_size, cha
 
     n_slices = total_size // slice_size
     if n_slices == 0:
-        raise ValueError("Slice size is larger than the total number of frames.")
+        raise ValueError("Slice size is larger than the total number of frames available in the chosen range.")
 
-    print(f'The trajectory has {u.trajectory.n_frames} frames.')
+    print(f"Processing frames {start_frame} to {start_frame + total_size - 1} of the trajectory.")
     print(f"Number of slices: {n_slices}")
 
     selection_str = "protein and name CA"
@@ -112,18 +125,17 @@ def process_trajectory_slices_by_size(u, output_dir, total_size, slice_size, cha
     all_data = pd.DataFrame()
 
     for i in range(n_slices):
-        start_frame = i * slice_size
-        end_frame = (i + 1) * slice_size
-
+        slice_start = start_frame + i * slice_size
+        slice_end = slice_start + slice_size  # stop is exclusive in RMSF.run
         # Move to the start frame and write the first-frame PDB
-        u.trajectory[start_frame]
+        u.trajectory[slice_start]
         coord_path = os.path.join(output_dir, f'slice_{i + 1}_first_frame.pdb')
         with mda.Writer(coord_path, protein.n_atoms, multiframe=False) as coord_writer:
             coord_writer.write(protein)
         print(f"First frame of slice {i + 1} written to {coord_path}")
 
         rmsf_calc = RMSF(protein)
-        rmsf_calc.run(start=start_frame, stop=end_frame)
+        rmsf_calc.run(start=slice_start, stop=slice_end)
 
         df = pd.DataFrame(
             {f"slice_{i + 1}.dcd": rmsf_calc.results.rmsf},
@@ -135,7 +147,7 @@ def process_trajectory_slices_by_size(u, output_dir, total_size, slice_size, cha
         else:
             all_data = pd.concat([all_data, df], axis=1)
 
-        print(f'Slice {i + 1}: RMSF computed for frames {start_frame} to {end_frame - 1} (total {slice_size} frames)')
+        print(f'Slice {i + 1}: RMSF computed for frames {slice_start} to {slice_end - 1} (total {slice_size} frames)')
 
     if not all_data.empty:
         # Add ResidueID and ChainID columns
@@ -145,26 +157,21 @@ def process_trajectory_slices_by_size(u, output_dir, total_size, slice_size, cha
     return all_data
 
 
-def process_rmsx_by_num_slices(u, output_dir, num_slices=5, chain_sele=None, trajectory_file=None):
+def process_rmsx_by_num_slices(u, output_dir, start_frame, end_frame, num_slices=5, chain_sele=None, trajectory_file=None):
     """
-    Process RMSx by specifying the number of slices.
+    Process RMSx by specifying the number of slices over a given frame range.
     """
-    total_frames = len(u.trajectory)
-    all_data = process_trajectory_slices_by_num(u, output_dir, total_frames, num_slices, chain_sele)
-
+    total_size = end_frame - start_frame + 1
+    all_data = process_trajectory_slices_by_num(u, output_dir, total_size, num_slices, chain_sele, start_frame)
     # Save the combined data
-    save_data(all_data, output_dir, trajectory_file, u)
+    save_data(all_data, output_dir, trajectory_file, u, frames_used=total_size)
 
 
-def process_trajectory_slices_by_num(u, output_dir, total_size, num_slices, chain_sele=None):
+def process_trajectory_slices_by_num(u, output_dir, total_size, num_slices, chain_sele=None, start_frame=0):
     """
-    Slice the trajectory into a specific number of slices, distributing frames as evenly as possible.
+    Slice the trajectory into a specific number of slices from start_frame to start_frame+total_size-1.
     """
-    if u.trajectory.n_frames != total_size:
-        raise ValueError(
-            f'Unexpected number of frames: {u.trajectory.n_frames}, expected: {total_size}'
-        )
-    print(f'The trajectory has {u.trajectory.n_frames} frames.')
+    print(f"Processing frames {start_frame} to {start_frame + total_size - 1} of the trajectory.")
 
     base_size = total_size // num_slices
     remainder = total_size % num_slices
@@ -182,20 +189,20 @@ def process_trajectory_slices_by_num(u, output_dir, total_size, num_slices, chai
 
     all_data = pd.DataFrame()
 
-    current_start = 0
+    current_start = start_frame
     for i, size in enumerate(slice_sizes):
-        start_frame = current_start
-        end_frame = current_start + size
+        slice_start = current_start
+        slice_end = slice_start + size
         current_start += size
 
-        u.trajectory[start_frame]
+        u.trajectory[slice_start]
         coord_path = os.path.join(output_dir, f'slice_{i + 1}_first_frame.pdb')
         with mda.Writer(coord_path, protein.n_atoms, multiframe=False) as coord_writer:
             coord_writer.write(protein)
         print(f"First frame of slice {i+1} written to {coord_path}")
 
         rmsf_calc = RMSF(protein)
-        rmsf_calc.run(start=start_frame, stop=end_frame)
+        rmsf_calc.run(start=slice_start, stop=slice_end)
 
         df = pd.DataFrame(
             {f"slice_{i+1}.dcd": rmsf_calc.results.rmsf},
@@ -207,7 +214,7 @@ def process_trajectory_slices_by_num(u, output_dir, total_size, num_slices, chai
         else:
             all_data = pd.concat([all_data, df], axis=1)
 
-        print(f'Slice {i + 1}: RMSF computed for frames {start_frame} to {end_frame - 1} (total {size} frames)')
+        print(f'Slice {i + 1}: RMSF computed for frames {slice_start} to {slice_end - 1} (total {size} frames)')
 
     if not all_data.empty:
         # Add ResidueID and ChainID columns
@@ -222,13 +229,13 @@ def analyze_trajectory(output_dir, chain_sele=None):
     return pd.DataFrame()
 
 
-def save_data(all_data, output_dir, trajectory_file, u):
-    output_filepath = file_namer(output_dir, trajectory_file, "csv", u=u)
+def save_data(all_data, output_dir, trajectory_file, u, frames_used):
+    output_filepath = file_namer(output_dir, trajectory_file, "csv", u=u, frames_used=frames_used)
     all_data.to_csv(output_filepath, index=False)
 
 
-def file_namer(output_dir, example_file, out_file_type="csv", prefix="rmsx", u=None):
-    simulation_length_fs = extract_simulation_length(u)
+def file_namer(output_dir, example_file, out_file_type="csv", prefix="rmsx", u=None, frames_used=None):
+    simulation_length_fs = extract_simulation_length(u, frames_used=frames_used)
     sim_name = os.path.basename(example_file)
     sim_name = os.path.splitext(sim_name)[0]
     simulation_length_ns = simulation_length_fs / 1e6
@@ -245,26 +252,35 @@ def file_namer(output_dir, example_file, out_file_type="csv", prefix="rmsx", u=N
     return output_filepath
 
 
-def extract_simulation_length(u):
+def extract_simulation_length(u, frames_used=None):
+    """
+    Extract simulation length in fs based on frames_used.
+    If frames_used is None, use entire trajectory.
+    """
     timestep_fs = u.trajectory.dt * 1000.0  # ps to fs
-    total_time_fs = timestep_fs * len(u.trajectory)
+    if frames_used is None:
+        frames_used = len(u.trajectory)
+    total_time_fs = timestep_fs * frames_used
     return total_time_fs
 
 
-def calculate_rmsd(u, output_dir, selection='protein and name CA', chain_sele=None):
-    # Ensure starting from first frame
-    # u.trajectory[0]
-    # ref = u.copy()
+def calculate_rmsd(u, output_dir, selection='protein and name CA', chain_sele=None, start_frame=0, end_frame=None):
+    """
+    Calculate RMSD for the subset of the trajectory defined by start_frame and end_frame.
 
+    If end_frame is None, uses the entire trajectory from start_frame onward.
+    """
     if chain_sele:
         selection += f" and segid {chain_sele}"
 
     protein = u.select_atoms(selection)
-    # protein_ref = ref.select_atoms(selection)
 
-    # rmsd_analysis = rms.RMSD(protein, protein_ref)
-    rmsd_analysis = rms.RMSD(protein) # this looks to be redundent given it autmatically does the first frame.
-    rmsd_analysis.run()
+    rmsd_analysis = rms.RMSD(protein)
+    stop_frame = None
+    if end_frame is not None:
+        # RMSD.run uses stop as exclusive
+        stop_frame = end_frame + 1
+    rmsd_analysis.run(start=start_frame, stop=stop_frame)
 
     columns = ['Frame', 'Time', 'RMSD']
     rmsd_df = pd.DataFrame(rmsd_analysis.results.rmsd, columns=columns)
@@ -272,12 +288,16 @@ def calculate_rmsd(u, output_dir, selection='protein and name CA', chain_sele=No
     if output_dir:
         rmsd_output_filepath = os.path.join(output_dir, 'rmsd.csv')
         rmsd_df.to_csv(rmsd_output_filepath, index=False)
-    return rmsd_output_filepath
+        return rmsd_output_filepath
 
 
-def calculate_rmsf(u, output_dir=None, selection='protein and name CA', chain_sele=None):
-    # Ensure a known starting frame
-    u.trajectory[0]
+def calculate_rmsf(u, output_dir=None, selection='protein and name CA', chain_sele=None, start_frame=0, end_frame=None):
+    """
+    Calculate RMSF for the subset of the trajectory defined by start_frame and end_frame.
+
+    If end_frame is None, uses all frames from start_frame onward.
+    """
+    u.trajectory[start_frame]
 
     if chain_sele:
         selection += f" and segid {chain_sele}"
@@ -285,7 +305,10 @@ def calculate_rmsf(u, output_dir=None, selection='protein and name CA', chain_se
     protein = u.select_atoms(selection)
 
     rmsf_analysis = RMSF(protein)
-    rmsf_analysis.run()
+    stop_frame = None
+    if end_frame is not None:
+        stop_frame = end_frame + 1  # exclusive
+    rmsf_analysis.run(start=start_frame, stop=stop_frame)
     rmsf_values = rmsf_analysis.results.rmsf
 
     num_residues = len(protein.residues)
@@ -306,7 +329,7 @@ def calculate_rmsf(u, output_dir=None, selection='protein and name CA', chain_se
     if output_dir:
         rmsf_output_filepath = os.path.join(output_dir, 'rmsf.csv')
         rmsf_whole_traj.to_csv(rmsf_output_filepath, index=False)
-    return rmsf_output_filepath
+        return rmsf_output_filepath
 
 
 def create_r_plot(
@@ -340,8 +363,8 @@ def create_r_plot(
                 rscript_executable,
                 str(r_script_path),
                 rmsx_csv,
-                rmsd_csv,
-                rmsf_csv,
+                rmsd_csv if rmsd_csv else "",
+                rmsf_csv if rmsf_csv else "",
                 interpolate_str,
                 triple_str,
                 palette
@@ -617,8 +640,23 @@ def run_rmsx(
         triple=False,
         chain_sele=None,
         overwrite=False,
-        palette="viridis"
+        palette="viridis",
+        start_frame=0,
+        end_frame=None
 ):
+    """
+    Run the RMSX analysis on a specified trajectory range.
+
+    Parameters:
+    - topology_file (str): Path to the topology file.
+    - trajectory_file (str): Path to the trajectory file.
+    - output_dir (str): Output directory for results.
+    - num_slices (int): Number of slices to divide frames into.
+    - slice_size (int): Size of each slice (in frames).
+    - start_frame (int): The frame at which to start the analysis.
+    - end_frame (int): The last frame to include (inclusive).
+    - ... (other parameters as before)
+    """
     initialize_environment()
     if output_dir is None:
         base_name = os.path.splitext(os.path.basename(topology_file))[0]
@@ -659,26 +697,37 @@ def run_rmsx(
     # Create the main universe once with trajectory
     u = mda.Universe(topology_file, trajectory_file)
 
+    # If end_frame not specified, use last frame
+    if end_frame is None:
+        end_frame = len(u.trajectory) - 1
+
+    if end_frame < start_frame:
+        raise ValueError("end_frame must be greater than or equal to start_frame.")
+    if end_frame >= len(u.trajectory):
+        end_frame = len(u.trajectory) - 1  # Cap at the last available frame
+
+    used_frames_count = end_frame - start_frame + 1
+
+    if used_frames_count < 1:
+        raise ValueError("No frames available in the specified range.")
+
     if verbose:
         print("Starting analysis...")
-
         if num_slices is not None:
-            # Use the new method: specify number of slices
-            print(f"Using the new slicing method with num_slices={num_slices}")
-            process_rmsx_by_num_slices(u, chain_output_dir, num_slices=num_slices, chain_sele=chain_sele, trajectory_file=trajectory_file)
+            print(f"Using the slicing method with num_slices={num_slices}")
+            process_rmsx_by_num_slices(u, chain_output_dir, start_frame, end_frame, num_slices=num_slices, chain_sele=chain_sele, trajectory_file=trajectory_file)
         elif slice_size is not None:
-            # Use the old method: specify slice size
-            print(f"Using the old slicing method with slice_size={slice_size}")
-            process_rmsx_by_slice_size(u, chain_output_dir, slice_size=slice_size, chain_sele=chain_sele, trajectory_file=trajectory_file)
+            print(f"Using the slicing method with slice_size={slice_size}")
+            process_rmsx_by_slice_size(u, chain_output_dir, start_frame, end_frame, slice_size=slice_size, chain_sele=chain_sele, trajectory_file=trajectory_file)
         else:
             print("Error: You must specify either num_slices or slice_size.")
             raise RuntimeError("No slicing method specified.")
 
-        rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u)
+        rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u, frames_used=used_frames_count)
         print(f"RMSX CSV: {rmsx_csv}")
-        rmsd_csv = calculate_rmsd(u, chain_output_dir, chain_sele=chain_sele)
+        rmsd_csv = calculate_rmsd(u, chain_output_dir, chain_sele=chain_sele, start_frame=start_frame, end_frame=end_frame)
         print(f"RMSD CSV: {rmsd_csv}")
-        rmsf_csv = calculate_rmsf(u, chain_output_dir, chain_sele=chain_sele)
+        rmsf_csv = calculate_rmsf(u, chain_output_dir, chain_sele=chain_sele, start_frame=start_frame, end_frame=end_frame)
         print(f"RMSF CSV: {rmsf_csv}")
 
         update_all_pdb_bfactors(rmsx_csv, silent=False)
@@ -691,16 +740,16 @@ def run_rmsx(
     else:
         with open(os.devnull, 'w') as f, redirect_stdout(f):
             if num_slices is not None:
-                process_rmsx_by_num_slices(u, chain_output_dir, num_slices=num_slices, chain_sele=chain_sele, trajectory_file=trajectory_file)
+                process_rmsx_by_num_slices(u, chain_output_dir, start_frame, end_frame, num_slices=num_slices, chain_sele=chain_sele, trajectory_file=trajectory_file)
             elif slice_size is not None:
-                process_rmsx_by_slice_size(u, chain_output_dir, slice_size=slice_size, chain_sele=chain_sele, trajectory_file=trajectory_file)
+                process_rmsx_by_slice_size(u, chain_output_dir, start_frame, end_frame, slice_size=slice_size, chain_sele=chain_sele, trajectory_file=trajectory_file)
             else:
                 print("Error: You must specify either num_slices or slice_size.")
                 raise RuntimeError("No slicing method specified.")
 
-            rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u)
-            rmsd_csv = calculate_rmsd(u, chain_output_dir, chain_sele=chain_sele)
-            rmsf_csv = calculate_rmsf(u, chain_output_dir, chain_sele=chain_sele)
+            rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u, frames_used=used_frames_count)
+            rmsd_csv = calculate_rmsd(u, chain_output_dir, chain_sele=chain_sele, start_frame=start_frame, end_frame=end_frame)
+            rmsf_csv = calculate_rmsf(u, chain_output_dir, chain_sele=chain_sele, start_frame=start_frame, end_frame=end_frame)
             update_all_pdb_bfactors(rmsx_csv, silent=True)
 
         with open(os.devnull, 'w') as f, redirect_stdout(f):
@@ -713,23 +762,25 @@ def all_chain_rmsx(
         topology_file,
         trajectory_file,
         output_dir=None,
-        num_slices=None,  # Can specify either num_slices or slice_size
+        num_slices=None,
         slice_size=None,
         rscript_executable='Rscript',
         verbose=True,
         interpolate=True,
         triple=False,
         overwrite=False,
-        palette='viridis'
+        palette='viridis',
+        start_frame=0,
+        end_frame=None
 ):
     u_top = mda.Universe(topology_file)
     chain_ids = np.unique(u_top.atoms.segids)
 
     for chain in chain_ids:
         run_rmsx(
-            topology_file,
-            trajectory_file,
-            output_dir,
+            topology_file=topology_file,
+            trajectory_file=trajectory_file,
+            output_dir=output_dir,
             num_slices=num_slices,
             slice_size=slice_size,
             rscript_executable=rscript_executable,
@@ -738,7 +789,9 @@ def all_chain_rmsx(
             triple=triple,
             chain_sele=chain,
             overwrite=overwrite,
-            palette=palette
+            palette=palette,
+            start_frame=start_frame,
+            end_frame=end_frame
         )
 
     print(f'Ran analysis for chains: {chain_ids}')
@@ -761,15 +814,15 @@ def all_chain_rmsx(
                and not d.startswith("combined")
                and os.path.isdir(os.path.join(output_dir, d))
         ]
-        print(f" Only one directory found, returning: {directories_with_dir[0]}")
+        print(f"Only one directory found, returning: {directories_with_dir[0]}")
         return directories_with_dir[0]
 
-# should update to allow it to be run with a single chain, maybe?
+
 def run_rmsx_flipbook(
         topology_file,
         trajectory_file,
         output_dir=None,
-        num_slices=9,  # Can specify either num_slices or slice_size
+        num_slices=9,
         slice_size=None,
         rscript_executable='Rscript',
         verbose=True,
@@ -779,7 +832,9 @@ def run_rmsx_flipbook(
         palette='viridis',
         flipbook_min_bfactor=None,
         flipbook_max_bfactor=None,
-        spacingFactor="1"
+        spacingFactor="1",
+        start_frame=0,
+        end_frame=None
 ):
     combined_dir = all_chain_rmsx(
         topology_file=topology_file,
@@ -792,7 +847,9 @@ def run_rmsx_flipbook(
         interpolate=interpolate,
         triple=triple,
         overwrite=overwrite,
-        palette=palette
+        palette=palette,
+        start_frame=start_frame,
+        end_frame=end_frame
     )
 
     run_flipbook(
@@ -805,13 +862,13 @@ def run_rmsx_flipbook(
 
     print("Full analysis including FlipBook visualization completed successfully.")
 
+
 # should to test more md file types to make sure there aren't any issues with it telling the duration of the simulation
-# could add hover over to show which time slice it came from
+# could add hover over to show which time slice it came from, would need to add that info to flipbook somehow.
 # allow you to say which frames you want from your simulation (allow you to cut it shorter)
 # could allow it to be seen with RMSX per _ number of frames
-# auto save picture in chimerax- last command could be visible so it could be copy pasted after it was correctly positioned.
 # function that would auto find the files to display given the output_dir path - could be helpful for both the 3d plot but also for run_flipbook on existing dirs
-# auto save and display image?
-# log version of rmsx?
+# auto save and display image of
+# log version of rmsx taking the log value of all the values in the rmsx df before ploting
 
 # make flipbook have the option of running with a single chain... seems obvious in hindsight.
