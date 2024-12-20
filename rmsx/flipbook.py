@@ -298,7 +298,7 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
         f"turn x 90 center #{axis_id}",
         "color byattribute bfactor",
         "worm bfactor",  # Uncomment to apply worm effect
-        "light soft", # multishadow 128
+        "lighting soft", # multishadow 128
         "graphics silhouettes true",
         "set bgColor white",  # Changed from light blue to white
         color_command,  # Dynamically generated color command

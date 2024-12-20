@@ -1,4 +1,3 @@
-
 import warnings  # Import warnings first to suppress specific warnings before other imports
 
 # Suppress the specific MDAnalysis warning about 'formalcharges'
@@ -22,7 +21,6 @@ from contextlib import redirect_stdout
 import glob
 import shutil
 import numpy as np
-import pkg_resources
 import plotly.graph_objects as go
 
 from pathlib import Path
@@ -72,40 +70,22 @@ def setup_directory(output_dir, overwrite=False):
         raise RuntimeError("User chose not to overwrite the existing directory.")
 
 
-def setup_universe(topology_file, trajectory_file):
-    """Set up the MDAnalysis universe."""
-    return mda.Universe(topology_file, trajectory_file)
-
-
-def process_rmsx_by_slice_size(topology_file, trajectory_file, output_dir=None, slice_size=5, chain_sele=None):
+def process_rmsx_by_slice_size(u, output_dir, slice_size=5, chain_sele=None, trajectory_file=None):
     """
     Process RMSx by specifying the number of frames per slice.
 
     Parameters:
-    - topology_file (str): Path to the topology file (e.g., PDB, PSF).
-    - trajectory_file (str): Path to the trajectory file.
-    - output_dir (str): Directory to save outputs. If None, defaults based on topology file name.
+    - u (MDAnalysis.Universe): The MDAnalysis Universe object.
+    - output_dir (str): Directory to save outputs.
     - slice_size (int): Number of frames per slice.
     - chain_sele (str): Specific chain selection (e.g., 'A'). If None, selects all chains.
+    - trajectory_file (str): Path to the trajectory file, used for naming output.
     """
-    initialize_environment()
-    if output_dir is None:
-        base_name = os.path.splitext(os.path.basename(topology_file))[0]
-        if chain_sele:
-            output_dir = os.path.join(
-                os.getcwd(), f"{base_name}_chain_{chain_sele}_rmsx"
-            )
-        else:
-            output_dir = os.path.join(os.getcwd(), f"{base_name}_rmsx")
-
-    u = setup_universe(topology_file, trajectory_file)
     total_frames = len(u.trajectory)
-
-    # Perform slicing and RMSF calculation
     all_data = process_trajectory_slices_by_size(u, output_dir, total_frames, slice_size, chain_sele)
 
     # Save the combined data
-    save_data(all_data, output_dir, trajectory_file)
+    save_data(all_data, output_dir, trajectory_file, u)
 
 
 def process_trajectory_slices_by_size(u, output_dir, total_size, slice_size, chain_sele=None):
@@ -159,38 +139,21 @@ def process_trajectory_slices_by_size(u, output_dir, total_size, slice_size, cha
 
     if not all_data.empty:
         # Add ResidueID and ChainID columns
-        all_data.insert(
-            0, 'ChainID', [res.atoms[0].segid for res in protein.residues]
-        )
-        all_data.insert(
-            0, 'ResidueID', [res.resid for res in protein.residues]
-        )
+        all_data.insert(0, 'ChainID', [res.atoms[0].segid for res in protein.residues])
+        all_data.insert(0, 'ResidueID', [res.resid for res in protein.residues])
 
     return all_data
 
 
-def process_rmsx_by_num_slices(topology_file, trajectory_file, output_dir=None, num_slices=5, chain_sele=None):
+def process_rmsx_by_num_slices(u, output_dir, num_slices=5, chain_sele=None, trajectory_file=None):
     """
     Process RMSx by specifying the number of slices.
     """
-    initialize_environment()
-    if output_dir is None:
-        base_name = os.path.splitext(os.path.basename(topology_file))[0]
-        if chain_sele:
-            output_dir = os.path.join(
-                os.getcwd(), f"{base_name}_chain_{chain_sele}_rmsx"
-            )
-        else:
-            output_dir = os.path.join(os.getcwd(), f"{base_name}_rmsx")
-
-    u = setup_universe(topology_file, trajectory_file)
     total_frames = len(u.trajectory)
-
-    # Perform slicing and RMSF calculation
     all_data = process_trajectory_slices_by_num(u, output_dir, total_frames, num_slices, chain_sele)
 
     # Save the combined data
-    save_data(all_data, output_dir, trajectory_file)
+    save_data(all_data, output_dir, trajectory_file, u)
 
 
 def process_trajectory_slices_by_num(u, output_dir, total_size, num_slices, chain_sele=None):
@@ -222,7 +185,7 @@ def process_trajectory_slices_by_num(u, output_dir, total_size, num_slices, chai
     current_start = 0
     for i, size in enumerate(slice_sizes):
         start_frame = current_start
-        end_frame = current_start + size  # end_frame is one past the last frame index for slicing
+        end_frame = current_start + size
         current_start += size
 
         u.trajectory[start_frame]
@@ -248,12 +211,8 @@ def process_trajectory_slices_by_num(u, output_dir, total_size, num_slices, chai
 
     if not all_data.empty:
         # Add ResidueID and ChainID columns
-        all_data.insert(
-            0, 'ChainID', [res.atoms[0].segid for res in protein.residues]
-        )
-        all_data.insert(
-            0, 'ResidueID', [res.resid for res in protein.residues]
-        )
+        all_data.insert(0, 'ChainID', [res.atoms[0].segid for res in protein.residues])
+        all_data.insert(0, 'ResidueID', [res.resid for res in protein.residues])
 
     return all_data
 
@@ -263,13 +222,13 @@ def analyze_trajectory(output_dir, chain_sele=None):
     return pd.DataFrame()
 
 
-def save_data(all_data, output_dir, trajectory_file):
-    output_filepath = file_namer(output_dir, trajectory_file, "csv")
+def save_data(all_data, output_dir, trajectory_file, u):
+    output_filepath = file_namer(output_dir, trajectory_file, "csv", u=u)
     all_data.to_csv(output_filepath, index=False)
 
 
-def file_namer(output_dir, example_file, out_file_type="csv", prefix="rmsx"):
-    simulation_length_fs = extract_simulation_length(example_file)
+def file_namer(output_dir, example_file, out_file_type="csv", prefix="rmsx", u=None):
+    simulation_length_fs = extract_simulation_length(u)
     sim_name = os.path.basename(example_file)
     sim_name = os.path.splitext(sim_name)[0]
     simulation_length_ns = simulation_length_fs / 1e6
@@ -286,35 +245,25 @@ def file_namer(output_dir, example_file, out_file_type="csv", prefix="rmsx"):
     return output_filepath
 
 
-def extract_simulation_length(trajectory_file):
-    u = mda.Universe(trajectory_file)
+def extract_simulation_length(u):
     timestep_fs = u.trajectory.dt * 1000.0  # ps to fs
     total_time_fs = timestep_fs * len(u.trajectory)
     return total_time_fs
 
 
-def calculate_rmsd(
-        topology_file,
-        trajectory_file,
-        output_dir,
-        selection='protein and name CA',
-        chain_sele=None,
-):
-    u = mda.Universe(topology_file, trajectory_file)
-    # ref = mda.Universe(topology_file,trajectory_file)
-    # ref = mda.Universe(topology_file) problematic?  first or last frame?
-
-    # Assume you already have a universe u loaded with your trajectory:
-    u.trajectory[0]  # Move to the first frame of the trajectory
-    ref = u.copy()  # Create a copy of the current universe state in memory
+def calculate_rmsd(u, output_dir, selection='protein and name CA', chain_sele=None):
+    # Ensure starting from first frame
+    # u.trajectory[0]
+    # ref = u.copy()
 
     if chain_sele:
         selection += f" and segid {chain_sele}"
 
     protein = u.select_atoms(selection)
-    protein_ref = ref.select_atoms(selection)
+    # protein_ref = ref.select_atoms(selection)
 
-    rmsd_analysis = rms.RMSD(protein, protein_ref)
+    # rmsd_analysis = rms.RMSD(protein, protein_ref)
+    rmsd_analysis = rms.RMSD(protein) # this looks to be redundent given it autmatically does the first frame.
     rmsd_analysis.run()
 
     columns = ['Frame', 'Time', 'RMSD']
@@ -326,14 +275,9 @@ def calculate_rmsd(
     return rmsd_output_filepath
 
 
-def calculate_rmsf(
-        topology_file,
-        trajectory_file,
-        output_dir=None,
-        selection='protein and name CA',
-        chain_sele=None,
-):
-    u = mda.Universe(topology_file, trajectory_file)
+def calculate_rmsf(u, output_dir=None, selection='protein and name CA', chain_sele=None):
+    # Ensure a known starting frame
+    u.trajectory[0]
 
     if chain_sele:
         selection += f" and segid {chain_sele}"
@@ -680,6 +624,7 @@ def run_rmsx(
         base_name = os.path.splitext(os.path.basename(topology_file))[0]
         output_dir = os.path.join(os.getcwd(), f"{base_name}_rmsx")
 
+    # Load a minimal universe for chain info
     u_top = mda.Universe(topology_file)
     chain_ids = np.unique(u_top.atoms.segids)
     chain_info = {}
@@ -708,8 +653,11 @@ def run_rmsx(
             raise RuntimeError("Selected chain is not available in the topology.")
 
     base_name = os.path.splitext(os.path.basename(topology_file))[0]
-    output_dir = os.path.join(output_dir, f"chain_{chain_sele}_rmsx")
-    setup_directory(output_dir, overwrite=overwrite)
+    chain_output_dir = os.path.join(output_dir, f"chain_{chain_sele}_rmsx")
+    setup_directory(chain_output_dir, overwrite=overwrite)
+
+    # Create the main universe once with trajectory
+    u = mda.Universe(topology_file, trajectory_file)
 
     if verbose:
         print("Starting analysis...")
@@ -717,24 +665,20 @@ def run_rmsx(
         if num_slices is not None:
             # Use the new method: specify number of slices
             print(f"Using the new slicing method with num_slices={num_slices}")
-            process_rmsx_by_num_slices(topology_file, trajectory_file, output_dir, num_slices, chain_sele=chain_sele)
+            process_rmsx_by_num_slices(u, chain_output_dir, num_slices=num_slices, chain_sele=chain_sele, trajectory_file=trajectory_file)
         elif slice_size is not None:
             # Use the old method: specify slice size
             print(f"Using the old slicing method with slice_size={slice_size}")
-            process_rmsx_by_slice_size(topology_file, trajectory_file, output_dir, slice_size, chain_sele=chain_sele)
+            process_rmsx_by_slice_size(u, chain_output_dir, slice_size=slice_size, chain_sele=chain_sele, trajectory_file=trajectory_file)
         else:
             print("Error: You must specify either num_slices or slice_size.")
             raise RuntimeError("No slicing method specified.")
 
-        rmsx_csv = file_namer(output_dir, trajectory_file, "csv")
+        rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u)
         print(f"RMSX CSV: {rmsx_csv}")
-        rmsd_csv = calculate_rmsd(
-            topology_file, trajectory_file, output_dir, chain_sele=chain_sele
-        )
+        rmsd_csv = calculate_rmsd(u, chain_output_dir, chain_sele=chain_sele)
         print(f"RMSD CSV: {rmsd_csv}")
-        rmsf_csv = calculate_rmsf(
-            topology_file, trajectory_file, output_dir, chain_sele=chain_sele
-        )
+        rmsf_csv = calculate_rmsf(u, chain_output_dir, chain_sele=chain_sele)
         print(f"RMSF CSV: {rmsf_csv}")
 
         update_all_pdb_bfactors(rmsx_csv, silent=False)
@@ -747,22 +691,16 @@ def run_rmsx(
     else:
         with open(os.devnull, 'w') as f, redirect_stdout(f):
             if num_slices is not None:
-                process_rmsx_by_num_slices(topology_file, trajectory_file, output_dir, num_slices,
-                                           chain_sele=chain_sele)
+                process_rmsx_by_num_slices(u, chain_output_dir, num_slices=num_slices, chain_sele=chain_sele, trajectory_file=trajectory_file)
             elif slice_size is not None:
-                process_rmsx_by_slice_size(topology_file, trajectory_file, output_dir, slice_size,
-                                           chain_sele=chain_sele)
+                process_rmsx_by_slice_size(u, chain_output_dir, slice_size=slice_size, chain_sele=chain_sele, trajectory_file=trajectory_file)
             else:
                 print("Error: You must specify either num_slices or slice_size.")
                 raise RuntimeError("No slicing method specified.")
 
-            rmsx_csv = file_namer(output_dir, trajectory_file, "csv")
-            rmsd_csv = calculate_rmsd(
-                topology_file, trajectory_file, output_dir, chain_sele=chain_sele
-            )
-            rmsf_csv = calculate_rmsf(
-                topology_file, trajectory_file, output_dir, chain_sele=chain_sele
-            )
+            rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u)
+            rmsd_csv = calculate_rmsd(u, chain_output_dir, chain_sele=chain_sele)
+            rmsf_csv = calculate_rmsf(u, chain_output_dir, chain_sele=chain_sele)
             update_all_pdb_bfactors(rmsx_csv, silent=True)
 
         with open(os.devnull, 'w') as f, redirect_stdout(f):
@@ -826,12 +764,12 @@ def all_chain_rmsx(
         print(f" Only one directory found, returning: {directories_with_dir[0]}")
         return directories_with_dir[0]
 
-
+# should update to allow it to be run with a single chain, maybe?
 def run_rmsx_flipbook(
         topology_file,
         trajectory_file,
         output_dir=None,
-        num_slices=9,  # Can specify either num_slices or slice_size, currently not implemented in the combined version?
+        num_slices=9,  # Can specify either num_slices or slice_size
         slice_size=None,
         rscript_executable='Rscript',
         verbose=True,
@@ -875,3 +813,5 @@ def run_rmsx_flipbook(
 # function that would auto find the files to display given the output_dir path - could be helpful for both the 3d plot but also for run_flipbook on existing dirs
 # auto save and display image?
 # log version of rmsx?
+
+# make flipbook have the option of running with a single chain... seems obvious in hindsight.
