@@ -42,11 +42,6 @@ A Python script to open all PDB files in a specified directory with ChimeraX,
 sorted in natural numerical order based on the slice number in the filenames,
 and apply additional ChimeraX commands such as dynamic coloring and tiling.
 
-Usage:
-    python3 flipbook.py /path/to/directory [--palette PALETTE] [--min_bfactor MIN] [--max_bfactor MAX]
-
-Example:
-    python3 flipbook.py /Users/finn/Desktop/RMSX_Demo_files_mac/gromacs_case_studies/new_protease_tfA/combined --palette viridis --min_bfactor 10 --max_bfactor 50
 """
 
 import os
