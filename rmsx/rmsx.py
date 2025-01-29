@@ -268,7 +268,9 @@ def process_rmsx_by_num_slices(u, output_dir, start_frame, end_frame, num_slices
     - trajectory_file (str)
 
     Returns:
-    None
+    A tuple containing:
+    - all_data (pd.DataFrame)
+    - adjusted_total_size (int)
     """
     total_size = end_frame - start_frame + 1
     all_data, adjusted_total_size = process_trajectory_slices_by_num(
@@ -451,7 +453,9 @@ def create_r_plot(
         rscript_executable='Rscript',
         interpolate=False,
         triple=False,
-        palette="plasma"
+        palette="plasma",
+        min_val=None,  # <-- new: optional min scale
+        max_val=None  # <-- new: optional max scale
 ):
     """
     Run the R script to generate RMSX plots and display the first image.
@@ -464,11 +468,14 @@ def create_r_plot(
     - interpolate (bool): Whether to interpolate RMSX values.
     - triple (bool): Whether to generate a triple plot (RMSX, RMSD, RMSF).
     - palette (str): Color palette for the plots.
+    - min_val (float or None): If provided, sets a global min for the color scale.
+    - max_val (float or None): If provided, sets a global max for the color scale.
     """
     interpolate_str = 'TRUE' if interpolate else 'FALSE'
     triple_str = 'TRUE' if triple else 'FALSE'
 
     try:
+        # Attempt to locate the R script
         try:
             current_dir = Path(__file__).parent.resolve()
         except NameError:
@@ -482,17 +489,25 @@ def create_r_plot(
 
         print(f"Found R script at {r_script_path}.")
 
+        # Build the command
+        cmd = [
+            rscript_executable,
+            str(r_script_path),
+            rmsx_csv,
+            rmsd_csv if rmsd_csv else "",
+            rmsf_csv if rmsf_csv else "",
+            interpolate_str,
+            triple_str,
+            palette,
+            str(min_val) if min_val is not None else "",  # pass empty if not set
+            str(max_val) if max_val is not None else ""
+        ]
+
+        print("Running R script command:")
+        print(" ".join(cmd))
+
         result = subprocess.run(
-            [
-                rscript_executable,
-                str(r_script_path),
-                rmsx_csv,
-                rmsd_csv if rmsd_csv else "",
-                rmsf_csv if rmsf_csv else "",
-                interpolate_str,
-                triple_str,
-                palette
-            ],
+            cmd,
             capture_output=True,
             text=True
         )
@@ -506,12 +521,15 @@ def create_r_plot(
 
     except FileNotFoundError:
         print(
-            f"Error: Rscript executable not found: {rscript_executable}. Please ensure R is installed and 'Rscript' is in your PATH.")
+            f"Error: Rscript executable not found: {rscript_executable}. "
+            "Please ensure R is installed and 'Rscript' is in your PATH."
+        )
         return
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
         return
 
+    # Display the first PNG found in the output directory
     try:
         rmsx_path = Path(rmsx_csv).resolve()
         directory = rmsx_path.parent
@@ -663,6 +681,38 @@ def find_and_combine_pdb_files(output_dir):
     print(f"Combined PDB files are saved in '{combined_dir}'.")
 
 
+def compute_global_rmsx_min_max(csv_paths):
+    """
+    Read all provided RMSX CSV files and compute the overall min and max RMSX values.
+
+    Parameters:
+    - csv_paths (list of str): Paths to RMSX CSV files.
+
+    Returns:
+    - (float, float): The global minimum and maximum across all numeric RMSX columns.
+    """
+    import numpy as np
+
+    all_vals = []
+    for path in csv_paths:
+        df = pd.read_csv(path)
+        # Identify all numeric columns except 'ResidueID' and 'ChainID'
+        numeric_cols = df.select_dtypes(include=[np.number]).columns
+        # Gather those values
+        for col in numeric_cols:
+            if col not in ('ResidueID', 'ChainID'):
+                all_vals.append(df[col].values)
+
+    if not all_vals:
+        # Fallback if no numeric columns found or empty data
+        return 0.0, 1.0
+
+    all_vals = np.concatenate(all_vals)
+    global_min = float(all_vals.min())
+    global_max = float(all_vals.max())
+    return global_min, global_max
+
+
 def run_rmsx(
         topology_file,
         trajectory_file,
@@ -677,7 +727,8 @@ def run_rmsx(
         overwrite=False,
         palette="viridis",
         start_frame=0,
-        end_frame=None
+        end_frame=None,
+        make_plot=True  # <-- NEW: if False, skip immediate R plotting
 ):
     """
     Run the RMSX analysis on a specified trajectory range.
@@ -697,6 +748,8 @@ def run_rmsx(
     - palette (str): Color palette for plots.
     - start_frame (int): The frame at which to start the analysis.
     - end_frame (int): The last frame to include (inclusive).
+    - make_plot (bool): If True (default), run the R script to produce plots immediately.
+                       If False, skip plotting so the data can be combined later.
     """
     initialize_environment()
     if output_dir is None:
@@ -754,67 +807,57 @@ def run_rmsx(
 
     if verbose:
         print("Starting analysis...")
-        if num_slices is not None:
-            print(f"Using the slicing method with num_slices={num_slices}")
-            all_data, adjusted_total_size = process_rmsx_by_num_slices(
-                u, chain_output_dir, start_frame, end_frame, num_slices=num_slices, chain_sele=chain_sele,
-                trajectory_file=trajectory_file
-            )
-        elif slice_size is not None:
-            print(f"Using the slicing method with slice_size={slice_size}")
-            all_data, adjusted_total_size = process_rmsx_by_slice_size(
-                u, chain_output_dir, start_frame, end_frame, slice_size=slice_size, chain_sele=chain_sele,
-                trajectory_file=trajectory_file
-            )
-        else:
-            print("Error: You must specify either num_slices or slice_size.")
-            raise RuntimeError("No slicing method specified.")
 
-        rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u, frames_used=adjusted_total_size)
+    if num_slices is not None:
+        if verbose:
+            print(f"Using the slicing method with num_slices={num_slices}")
+        all_data, adjusted_total_size = process_rmsx_by_num_slices(
+            u, chain_output_dir, start_frame, end_frame, num_slices=num_slices, chain_sele=chain_sele,
+            trajectory_file=trajectory_file
+        )
+    elif slice_size is not None:
+        if verbose:
+            print(f"Using the slicing method with slice_size={slice_size}")
+        # Here, process_rmsx_by_slice_size does not return all_data, adjusted_total_size,
+        # but we can replicate the logic if needed. Let's be consistent:
+        total_size = end_frame - start_frame + 1
+        all_data, adjusted_total_size = process_trajectory_slices_by_size(
+            u, chain_output_dir, total_size, slice_size, chain_sele, start_frame
+        )
+        # Save the combined data
+        save_data(all_data, chain_output_dir, trajectory_file, u, frames_used=adjusted_total_size)
+    else:
+        print("Error: You must specify either num_slices or slice_size.")
+        raise RuntimeError("No slicing method specified.")
+
+    # Collect CSV, RMSD, RMSF
+    rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u, frames_used=adjusted_total_size)
+    if verbose:
         print(f"RMSX CSV: {rmsx_csv}")
-        rmsd_csv = calculate_rmsd(u, chain_output_dir, chain_sele=chain_sele, start_frame=start_frame,
-                                  end_frame=start_frame + adjusted_total_size - 1)
+    rmsd_csv = calculate_rmsd(u, chain_output_dir, chain_sele=chain_sele, start_frame=start_frame,
+                              end_frame=start_frame + adjusted_total_size - 1)
+    if verbose and rmsd_csv:
         print(f"RMSD CSV: {rmsd_csv}")
-        rmsf_csv = calculate_rmsf(u, chain_output_dir, chain_sele=chain_sele, start_frame=start_frame,
-                                  end_frame=start_frame + adjusted_total_size - 1)
+    rmsf_csv = calculate_rmsf(u, chain_output_dir, chain_sele=chain_sele, start_frame=start_frame,
+                              end_frame=start_frame + adjusted_total_size - 1)
+    if verbose and rmsf_csv:
         print(f"RMSF CSV: {rmsf_csv}")
 
-        update_all_pdb_bfactors(rmsx_csv, silent=False)
+    # Update PDB B-factors with RMSX
+    update_all_pdb_bfactors(rmsx_csv, silent=not verbose)
 
-        print("Generating plots...")
-        print("This may take several minutes the first time it is run.")
+    # Conditionally make the plot now or skip for later
+    if make_plot:
+        if verbose:
+            print("Generating plots...")
+            print("This may take several minutes the first time it is run.")
         create_r_plot(
-            rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple, palette
+            rmsx_csv, rmsd_csv, rmsf_csv,
+            rscript_executable, interpolate, triple, palette
         )
     else:
-        with open(os.devnull, 'w') as f, redirect_stdout(f):
-            if num_slices is not None:
-                all_data, adjusted_total_size = process_rmsx_by_num_slices(
-                    u, chain_output_dir, start_frame, end_frame, num_slices=num_slices, chain_sele=chain_sele,
-                    trajectory_file=trajectory_file
-                )
-            elif slice_size is not None:
-                all_data, adjusted_total_size = process_rmsx_by_slice_size(
-                    u, chain_output_dir, start_frame, end_frame, slice_size=slice_size, chain_sele=chain_sele,
-                    trajectory_file=trajectory_file
-                )
-            else:
-                print("Error: You must specify either num_slices or slice_size.")
-                raise RuntimeError("No slicing method specified.")
-
-            save_data(all_data, chain_output_dir, trajectory_file, u, frames_used=adjusted_total_size)
-            rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u, frames_used=adjusted_total_size)
-            rmsd_csv = calculate_rmsd(u, chain_output_dir, chain_sele=chain_sele, start_frame=start_frame,
-                                      end_frame=start_frame + adjusted_total_size - 1)
-            rmsf_csv = calculate_rmsf(u, chain_output_dir, chain_sele=chain_sele, start_frame=start_frame,
-                                      end_frame=start_frame + adjusted_total_size - 1)
-            update_all_pdb_bfactors(rmsx_csv, silent=True)
-
-        with open(os.devnull, 'w') as f, redirect_stdout(f):
-            create_r_plot(
-                rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable, interpolate, triple, palette
-            )
-
+        if verbose:
+            print("Skipping plot generation in run_rmsx() because make_plot=False.")
 
 def all_chain_rmsx(
         topology_file,
@@ -829,36 +872,77 @@ def all_chain_rmsx(
         overwrite=False,
         palette='viridis',
         start_frame=0,
-        end_frame=None
+        end_frame=None,
+        sync_color_scale=False
 ):
     """
     Perform RMSX analysis for all chains in the topology file.
 
-    Parameters:
-    - topology_file (str)
-    - trajectory_file (str)
-    - output_dir (str)
-    - num_slices (int)
-    - slice_size (int)
-    - rscript_executable (str)
-    - verbose (bool)
-    - interpolate (bool)
-    - triple (bool)
-    - overwrite (bool)
-    - palette (str)
-    - start_frame (int)
-    - end_frame (int)
+    Parameters
+    ----------
+    topology_file : str
+        Path to the topology (e.g. .pdb, .gro) file.
+    trajectory_file : str
+        Path to the trajectory (e.g. .xtc, .dcd) file.
+    output_dir : str, optional
+        Path to the output directory where results will be written.
+        If None, a default name based on the topology file is used.
+    num_slices : int, optional
+        Number of slices to split the trajectory into. If specified, slice_size is ignored.
+    slice_size : int, optional
+        Size (in frames) for each slice. If specified, num_slices is ignored.
+    rscript_executable : str, optional
+        Path to Rscript executable (default 'Rscript').
+    verbose : bool, optional
+        Enable detailed logging (default True).
+    interpolate : bool, optional
+        Enable interpolation for RMSX heatmaps (passed to geom_raster).
+    triple : bool, optional
+        If True, generate triple plots (RMSX, RMSD, RMSF) in addition to RMSX heatmaps.
+    overwrite : bool, optional
+        If True, overwrite the output directory if it exists. Otherwise prompt the user.
+    palette : str, optional
+        The color palette for the RMSX heatmap (e.g. 'viridis', 'plasma', etc.).
+    start_frame : int, optional
+        The first frame to include in the analysis. Default is 0.
+    end_frame : int, optional
+        The last frame to include (inclusive). Default None means all frames.
+    sync_color_scale : bool, optional
+        If True, defer plotting until all chains are analyzed, compute a global min/max
+        of RMSX across all chains, and generate plots with that shared color scale.
 
-    Returns:
-    - combined_dir (str): Path to the combined output directory if multiple chains exist.
+    Returns
+    -------
+    combined_dir : str
+        The final directory containing PDB files and/or plots. For multi-chain systems,
+        this is typically <output_dir>/combined. For single-chain systems, it's the
+        chain subfolder.
+
+    Notes
+    -----
+    - If sync_color_scale=False, each chain is plotted and saved immediately based
+      on its own min/max values.
+    - If sync_color_scale=True, run_rmsx is called with make_plot=False for each chain,
+      and then a global RMSX min/max is computed before plotting.
+    - For single-chain cases, we point combined_dir to the chain subfolder so that
+      subsequent tasks (e.g. run_flipbook) can find the correct PDB files.
     """
+    import MDAnalysis as mda
+    import numpy as np
+    from pathlib import Path
+
     u_top = mda.Universe(topology_file)
     chain_ids = np.unique(u_top.atoms.segids)
 
     combined_output_dirs = []
+    csv_paths = []
 
     for chain in chain_ids:
         print(f"\nAnalyzing Chain {chain}...")
+
+        # If we want synced color scale, skip immediate plotting in run_rmsx
+        chain_make_plot = not sync_color_scale
+
         run_rmsx(
             topology_file=topology_file,
             trajectory_file=trajectory_file,
@@ -873,20 +957,58 @@ def all_chain_rmsx(
             overwrite=overwrite,
             palette=palette,
             start_frame=start_frame,
-            end_frame=end_frame
+            end_frame=end_frame,
+            make_plot=chain_make_plot
         )
+
         chain_output_dir = os.path.join(output_dir, f"chain_{chain}_rmsx")
         combined_output_dirs.append(chain_output_dir)
 
+        # Attempt to find the RMSX CSV in chain_output_dir
+        possible_csv = list(Path(chain_output_dir).glob("rmsx_*.csv"))
+        if possible_csv:
+            csv_paths.append(str(possible_csv[0]))
+
+    # Decide where we place the final PDB files (and final plots)
     if len(chain_ids) > 1:
+        # Multi-chain: combine subfolders
         combined_dir = os.path.join(output_dir, "combined")
         print("\nCombining PDB files from all chains...")
         combine_pdb_files(combined_output_dirs, combined_dir)
         print("Combined RMSX analysis completed for all chains.")
-        return combined_dir
     else:
-        print("Single-chain analysis completed.")
-        return combined_output_dirs[0]
+        # Single chain: no need to combine multiple directories
+        # Point combined_dir to the single chain subfolder
+        single_chain_id = chain_ids[0]
+        combined_dir = os.path.join(output_dir, f"chain_{single_chain_id}_rmsx")
+        print(f"Single-chain analysis completed. Setting combined_dir to: {combined_dir}")
+
+    # If sync_color_scale, compute global min/max and do the actual plotting now
+    if sync_color_scale and csv_paths:
+        print("\nComputing global RMSX min and max across all chains...")
+        global_min, global_max = compute_global_rmsx_min_max(csv_paths)
+        print(f"Global RMSX range = [{global_min:.3f}, {global_max:.3f}]")
+
+        print("Generating plots for each chain with a fixed color scale...")
+        for csv_path in csv_paths:
+            csv_dir = Path(csv_path).parent
+            rmsd_csv = csv_dir / "rmsd.csv"
+            rmsf_csv = csv_dir / "rmsf.csv"
+
+            create_r_plot(
+                rmsx_csv=str(csv_path),
+                rmsd_csv=str(rmsd_csv),
+                rmsf_csv=str(rmsf_csv),
+                rscript_executable=rscript_executable,
+                interpolate=interpolate,
+                triple=triple,
+                palette=palette,
+                min_val=global_min,
+                max_val=global_max
+            )
+
+    return combined_dir
+
 
 
 def run_rmsx_flipbook(
@@ -909,25 +1031,9 @@ def run_rmsx_flipbook(
 ):
     """
     Run RMSX analysis and generate a FlipBook visualization.
-
-    Parameters:
-    - topology_file (str)
-    - trajectory_file (str)
-    - output_dir (str)
-    - num_slices (int)
-    - slice_size (int)
-    - rscript_executable (str)
-    - verbose (bool)
-    - interpolate (bool)
-    - triple (bool)
-    - overwrite (bool)
-    - palette (str)
-    - flipbook_min_bfactor (float)
-    - flipbook_max_bfactor (float)
-    - spacingFactor (str)
-    - start_frame (int)
-    - end_frame (int)
     """
+
+    # The key change: set sync_color_scale=True
     combined_dir = all_chain_rmsx(
         topology_file=topology_file,
         trajectory_file=trajectory_file,
@@ -941,7 +1047,8 @@ def run_rmsx_flipbook(
         overwrite=overwrite,
         palette=palette,
         start_frame=start_frame,
-        end_frame=end_frame
+        end_frame=end_frame,
+        sync_color_scale=True    # <-- Ensures consistent color scale across all chains
     )
 
     run_flipbook(

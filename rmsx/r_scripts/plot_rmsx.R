@@ -1,30 +1,26 @@
-# # could add these to the requirements
+#!/usr/bin/env Rscript
+
+# ----------------------------------------------------------------------------------------
+# This script generates RMSX heatmaps (and optionally triple plots with RMSD, RMSF).
+# It supports an optional global min/max color scale for direct comparisons across plots.
+# ----------------------------------------------------------------------------------------
+
+# Potentially required libraries:
 # library(ggplot2)
 # library(viridis)
 # library(tidyverse)
 # library(readr)
-# # library(superheat)
 # library(reshape2)
 # library(gridExtra)
 # library(grid)
 # library(cowplot)
-#
-# # copied from triple_plot_rmsx.R
 
-# Ensure the cluster has the necessary libraries
 packages <- c("viridis", "tidyverse")
 
 options(repos = list(CRAN = "https://cloud.r-project.org"))
 
 install_if_not_present <- function(pkg) {
   # Installs a package if it's not already installed, and then loads it.
-  #
-  # Args:
-  #   pkg: A string with the package name to install/load.
-  #
-  # This function checks if the package is installed. If not, it installs it from CRAN,
-  # then loads the library. Useful for ensuring that all dependencies are satisfied
-  # before running the main script.
   if (!require(pkg, character.only = TRUE)) {
     install.packages(pkg, dependencies = TRUE)
     library(pkg, character.only = TRUE)
@@ -50,9 +46,11 @@ sapply(packages, install_if_not_present)
 #'   - interpolate: Logical flag for raster interpolation.
 #'   - triple: Logical flag indicating whether to produce a triple plot (RMSX, RMSD, RMSF).
 #'   - palette: The color palette name (for viridis).
+#'   - manual_min: Optional numeric lower limit for the color scale.
+#'   - manual_max: Optional numeric upper limit for the color scale.
 #'
 #' @details This function reads arguments passed to the script. If no arguments are found,
-#' it stops. Otherwise, it prints them for debugging and returns them in a named list.
+#' it stops. If additional arguments (7, 8) are present, they are parsed as numbers.
 parse_args <- function() {
   args <- commandArgs(trailingOnly = TRUE)
 
@@ -67,13 +65,25 @@ parse_args <- function() {
   print("arg 5"); print(args[5])
   print("arg 6"); print(args[6])
 
+  # Optionally: manual min & max for the color scale
+  manual_min <- NA
+  manual_max <- NA
+  if (length(args) >= 7 && args[7] != "") {
+    manual_min <- as.numeric(args[7])
+  }
+  if (length(args) >= 8 && args[8] != "") {
+    manual_max <- as.numeric(args[8])
+  }
+
   list(
     csv_path = args[1],
     rmsd = args[2],
     rmsf = args[3],
     interpolate = ifelse("TRUE" == args[4], TRUE, FALSE),
     triple = ifelse("TRUE" == args[5], TRUE, FALSE),
-    palette = args[6]
+    palette = args[6],
+    manual_min = manual_min,
+    manual_max = manual_max
   )
 }
 
@@ -82,10 +92,6 @@ parse_args <- function() {
 #'
 #' @param csv_path String, path to the RMSX CSV file.
 #' @return A data frame (tibble) of the raw RMSX data.
-#'
-#' @details This function reads the RMSX CSV and groups by ChainID to show how many
-#' residues or entries exist per chain. This helps in verifying that the input data
-#' is as expected.
 read_and_summarize_csv <- function(csv_path) {
   rmsx_raw <- read_csv(csv_path)
   count_by_chainID <- rmsx_raw %>%
@@ -103,19 +109,14 @@ read_and_summarize_csv <- function(csv_path) {
 #' @param csv_path Path to the CSV file containing the RMSX data.
 #' @param interpolate Logical, whether to interpolate in geom_raster.
 #' @param palette The viridis color palette option to use.
+#' @param manual_min Optional numeric lower limit for color scale, NA if not used.
+#' @param manual_max Optional numeric upper limit for color scale, NA if not used.
 #' @return A ggplot object representing the RMSX plot for the given chain.
 #'
 #' @details
 #' This function extracts data for one specific Chain ID. It determines the simulation length
 #' from the filename and calculates the spacing (step_size) between time points.
-#'
-#' **Key Change and Reasoning:**
-#' Instead of labeling time points starting at zero or at the first step, we position the
-#' cell centers so that the entire set of cells fits exactly from 0 to sim_len.
-#' We do this by starting the time points at `step_size/2` and ending at `sim_len - step_size/2`.
-#' This ensures that the left edge of the first cell aligns with time = 0 and the right edge
-#' of the last cell aligns with time = sim_len, so no cells are half-cut or misaligned.
-process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palette) {
+process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palette, manual_min, manual_max) {
   rmsx <- rmsx_raw %>%
     filter(ChainID == id) %>%
     select(-ChainID)
@@ -130,14 +131,13 @@ process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palett
   step_size <- sim_len / num_time_points
 
   # Centers run from step_size/2 to sim_len - step_size/2
-  # This makes the first raster cell start at time=0 and the last end exactly at sim_len.
   column_numbers <- seq(step_size/2, sim_len - step_size/2, length.out = num_time_points)
 
   names(rmsx) <- c("Residue", column_numbers)
   rmsx_long <- pivot_longer(rmsx, cols = -Residue, names_to = "Time_Point", values_to = "RMSF")
   rmsx_long$Time_Point <- as.numeric(rmsx_long$Time_Point)
 
-  plot_rmsx(rmsx_long, interpolate, palette, step_size, sim_len)
+  plot_rmsx(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max)
 }
 
 #' @title plot_rmsx
@@ -148,20 +148,22 @@ process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palett
 #' @param palette The viridis palette option.
 #' @param step_size The time increment between frames.
 #' @param sim_len The total simulation length in ns.
+#' @param manual_min Optional numeric lower limit for color scale, NA if not used.
+#' @param manual_max Optional numeric upper limit for color scale, NA if not used.
+#'
 #' @return A ggplot object of the RMSX raster plot.
-#'
-#' @details
-#' This function plots RMSX values as a heatmap (raster) over time (x-axis) and residue (y-axis).
-#'
-#' **Key Change and Reasoning:**
-#' The `coord_cartesian(xlim = c(0, sim_len))` ensures the plot covers the full simulation time exactly.
-#' Because we set the centers of the cells to be from step_size/2 to sim_len - step_size/2, the left
-#' edge of the first cell is at 0 and the right edge of the last cell is at sim_len. Thus, the raster
-#' perfectly matches the simulation range without extra padding or half-cells at the ends.
-plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len) {
+plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max) {
+  # If both manual_min and manual_max are numeric (not NA), pass them as color limits.
+  # Otherwise, omit the 'limits' argument to let scale_fill_viridis auto-scale.
+  fill_scale <- if (!is.na(manual_min) && !is.na(manual_max)) {
+    scale_fill_viridis(option = palette, limits = c(manual_min, manual_max))
+  } else {
+    scale_fill_viridis(option = palette)
+  }
+
   ggplot(rmsx_long, aes(Time_Point, Residue, fill = RMSF)) +
     geom_raster(interpolate = interpolate) +
-    scale_fill_viridis(option = palette) +
+    fill_scale +
     coord_cartesian(xlim = c(0, sim_len)) +
     theme_minimal() +
     theme(legend.position = "left") +
@@ -175,10 +177,6 @@ plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len) {
 #' @param csv_path Path to the RMSX CSV file used to generate the plot.
 #' @param id The Chain ID, used to name the output file.
 #' @return The output file path as a string.
-#'
-#' @details
-#' This function uses ggsave to export the plot to a PNG. The filename is derived from the CSV file name,
-#' inserting the chain ID so that multiple chains produce separate files.
 save_plot <- function(rmsx_plot, csv_path, id) {
   output_filename <- gsub(pattern = "\\.csv$", replacement = paste("_rmsx_plot_chain_", id, ".png", sep=""), basename(csv_path))
   output_filepath <- file.path(dirname(csv_path), output_filename)
@@ -222,9 +220,6 @@ plot_rmsf <- function(rmsf_whole_traj, ResidueID, RMSF) {
 #' @param rmsd_plot The RMSD line plot.
 #' @param rmsf_plot The RMSF line plot.
 #' @return A grob containing the arranged plots.
-#'
-#' @details
-#' This function arranges the three plots (RMSD, RMSX, RMSF) into a grid layout for easier comparison.
 plot_triple <- function(rmsx_plot, rmsd_plot, rmsf_plot) {
   plot_elements <- list(rmsd_plot, rmsx_plot, rmsf_plot, nullGrob())
 
@@ -254,7 +249,13 @@ main <- function() {
   rmsx_raw <- read_and_summarize_csv(args$csv_path)
 
   for (id in unique(rmsx_raw$ChainID)) {
-    rmsx_plot <- process_data_by_chain_id(rmsx_raw, id, args$csv_path, args$interpolate, args$palette)
+    # Pass manual_min and manual_max to the plot
+    rmsx_plot <- process_data_by_chain_id(
+      rmsx_raw, id, args$csv_path,
+      args$interpolate, args$palette,
+      args$manual_min, args$manual_max
+    )
+
     save_plot(rmsx_plot, args$csv_path, id)
 
     if (args$triple == TRUE) {
