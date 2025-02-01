@@ -1,334 +1,134 @@
-# RMSX Trajectory Analysis Tool Tutorial
-
-Welcome to the tutorial for setting up and running the **RMSX Trajectory Analysis Tool**. This guide will walk you through the installation process, setup, and usage of the tool for analyzing molecular dynamics (MD) trajectories.
-
----
-
-## Table of Contents
-- [Quick Start with Google Colab](#quick-start)
-- [Introduction](#introduction)
-- [Prerequisites](#prerequisites)
-    - [Software Requirements](#software-requirements)
-    - [Python Dependencies](#python-dependencies)
-    - [R Dependencies](#r-dependencies)
-- [Installation](#installation)
-    - [1. Clone the Repository](#1-clone-the-repository)
-    - [2. Install the Python Package](#2-install-the-python-package)
-    - [3. Install R and Required Packages](#3-install-r-and-required-packages)
-- [Usage](#usage)
-    - [Command-Line Interface](#command-line-interface)
-    - [Python Module](#python-module)
-- [Examples](#examples)
-    - [Example 1: Basic Usage](#example-1-basic-usage)
-    - [Example 2: Advanced Options](#example-2-advanced-options)
-    - [Example 3: Selecting a Specific Chain](#example-3-selecting-a-specific-chain)
-- [Additional Resources](#additional-resources)
-- [Contact Information](#contact-information)
-- [Contributing](#contributing)
-- [License](#license)
-
----
-## Quick Start with Collab
-
-```python
-!pip install rpy2
-%load_ext rpy2.ipython
-```
-
-```r
-%%R
-install.packages(c("ggplot2", "viridis", "dplyr", "tidyr", "stringr", "readr", "gridExtra", "grid"), repos='http://cran.r-project.org/')
-```
+# RMSDxRMSF = RMSX
+RMSX Combines the Features of RMSD and RMSF into a simple-to-understand and simple-to-implement tool for understanding how proteins move. It can work with simulation files from most major MD simulation suites and is much faster than other visualization methods while delivering publication-ready images out of the box. 
 
 
-```python
-# Clone the RMSX repository 
-!git clone https://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@github.com/AntunesLab/rmsx.git
-!pip install -e ./rmsx/.
-```
+### 1. Prerequisites
+- [**Python**](https://www.python.org/) 3.7+ (tested with 3.8+).
+- [**R**](https://cran.r-project.org/) installed and in your PATH (the `Rscript` command must be available).
+- [**ChimeraX**](https://www.cgl.ucsf.edu/chimerax/download.html) if you plan to use the **Flipbook** 3D visualization.
+- The RMSX code will attempt to install R packages like `ggplot2`, `viridis`, `dplyr`, etc., if they’re missing.
 
-    
+### 2. Installation
 
-```python
-import os, sys
+1. **Clone this repository**:
+   ```bash
+   git clone https://github.com/AntunesLab/rmsx.git
+   ```
 
-# Add the parent directory of 'rmsx' to sys.path
-sys.path.append('/content/rmsx/rmsx')
-print(sys.path)
-```
+2. **Install RMSX** in editable mode:
+   ```bash
+   cd rmsx
+   pip install -e .
+   ```
+   This also installs the required Python libraries (e.g., MDAnalysis).
+
+*(If installing on HPC or unusual platforms, you may need to manually install R libraries, but typically the R script handles that automatically.)*
+
+### 3. Single-Chain Analysis Example
+
+Below is a minimal example showing how to analyze **one chain**. We add a brief comment for each parameter:
 
 ```python
 from rmsx import run_rmsx
-```
 
-```python
-psf_file = "/content/rmsx/test_files/1UBQ.psf"
-dcd_file = "/content/rmsx/test_files/mon_sys.dcd"
-pdb_file = "/content/rmsx/test_files/1UBQ.pdb"
-output_dir = "/content/rmsx/test_files/colab_demo_data2"
+pdb_file = "/path/to/your_structure.pdb"   # Topology file (PDB or GRO)
+dcd_file = "/path/to/your_trajectory.dcd" # Trajectory file (DCD, XTC, etc.)
+output_dir = "/path/to/output_directory"  # Folder where results go
 
-
-run_rmsx(psf_file, dcd_file, pdb_file, output_dir, 15, 'Rscript', verbose=True, interpolate=False, triple=False)
-```
-
-## Introduction
-
-The **RMSX Trajectory Analysis Tool** is a Python package designed to facilitate the analysis of molecular dynamics simulations. RMSX itself is a time series RMSF and combines the features of both RMSF and RMSD. This package produces graphs like the following:
-
-![Alt text](test_files/triple_plot.png)
-
-From these plots, it is easy to see the fluctuation (amount of movement) when (the time in terms of frames or nanoseconds) where (which residue was moving), and how much (the RMSX or RMSF over that slice of time)
-
-
-This tool is built on top of the existing MDAnalysis tool and has been tested with both GROMACS and NAMD simulation files. The tool supports both a command-line interface (CLI) and a Python API for flexible use. To quickly get started with RMSX, check out the Quick Start Guide using Google Colab.
-
----
-
-## Prerequisites
-
-### Software Requirements
-
-- **Operating System**: Linux, macOS, or Windows
-- **Python**: Version 3.6 or higher
-- **R**: Version 3.6 or higher
-
-### Python Dependencies
-
-The following Python packages are required:
-
-- **MDAnalysis**
-- **numpy**
-- **pandas**
-- **matplotlib** (optional, for plotting within Python)
-- **pkg_resources**
-- **argparse**
-
-These dependencies will be installed automatically when you install the package using `pip`.
-
-### R Dependencies
-
-The R script used for plotting requires the following R packages:
-- **ggplot2**
-- **viridis**
-- **dplyr**
-- **tidyr**
-- **stringr**
-- **readr**
-- **grid**
-- **gridExtra**
-
-### Input Types
-- pdb
-- gro or psf etc
-- dcd, xtc etc
----
-
-## Installation
-
-### 1. Clone the Repository
-
-First, clone the repository from GitHub to your local machine:
-```
-git clone https://github.com/finn2400/rmsx.git cd rmsx
-```
-### 2. Install the Python Package
-
-Install the package using `pip`. It's recommended to use a virtual environment.
-
-#### Option A: Using a Virtual Environment
-
-Create and activate a virtual environment:
-```
-# For virtualenv
-python -m venv venv source venv/bin/activate
-# On Windows: venv\Scripts\activate
-# For conda conda create -n rmsx_env python=3.8 conda activate rmsx_env
-```
-Install the package in editable mode (useful for development):
-
-```
-pip install -e .
-```
-#### Option B: Install Globally
-
-```
-pip install .
-```
-
-
-### 3. Install R and Required Packages
-
-#### Install R
-
-If you don't have R installed, download and install it from CRAN.
-
-#### Install Required R Packages
-
-Open R or RStudio and install the required packages:
-
-```
-install.packages(c("ggplot2", "viridis", "dplyr", "tidyr", "stringr", "readr", "gridExtra", "grid")))
-```
-Alternatively, you can install the packages from the command line:
-
-```
-Rscript -e "install.packages(c("ggplot2", "viridis", "dplyr", "tidyr", "stringr", "readr", "gridExtra", "grid"), repos='http://cran.rstudio.com/')"
-```
----
-
-## Usage
-
-### Command-Line Interface
-
-The package provides a command-line tool `rmsx_cli.py` for easy usage.
-
-#### Syntax
-```
-rmsx_cli.py [options] psf_file dcd_file pdb_file
-```
-#### Positional Arguments
-
-- `psf_file`: Path to the topology file (e.g., `.psf`, `.gro`)
-- `dcd_file`: Path to the trajectory file (e.g., `.dcd`, `.trr`)
-- `pdb_file`: Path to the PDB file containing the structure
-
-#### Optional Arguments
-
-- `--output_dir OUTPUT_DIR`: Output directory to save results (default: current directory)
-- `--slice_size SLICE_SIZE`: Number of frames per slice for trajectory processing (default: 5)
-- `--verbose`: Enable verbose output
-- `--interpolate`: Enable interpolation in plots
-- `--triple`: Generate triple plots
-- `--help`: Show help message and exit
-
-#### Accessing Help
-
-To view the help message and see all options:
-
-```
-rmsx_cli.py --help
-```
-### Python Module
-
-You can also use the tool directly within your Python scripts or Jupyter notebooks.
-
-#### Importing the Module
-```
-import os, sys
-
-# Add the parent directory of 'rmsx' to sys.path
-sys.path.append('/content/rmsx/rmsx')
-print(sys.path)
-
-from rmsx import run_rmsx
-```
-#### Function Syntax
-
-```
 run_rmsx(
-    psf_file,
-    dcd_file,
-    pdb_file,
-    r_script_name='triple_plot_rmsx.R',
-    output_dir=None,
-    slice_size=5,
+    topology_file=pdb_file,        # PDB or topology file
+    trajectory_file=dcd_file,      # Trajectory file
+    output_dir=output_dir,         # Location for RMSX outputs
+    num_slices=9,                  # Divide trajectory into 9 slices
+    slice_size=None,               # (Alternately specify slice_size in frames)
+    rscript_executable='Rscript',  # Path to Rscript
+    verbose=True,                  # Print detailed logs
+    interpolate=False,             # Disable heatmap interpolation
+    triple=True,                   # Generate RMSX, RMSD, and RMSF plots
+    overwrite=True,                # Overwrite existing folder
+    palette="mako",                # Color palette
+    chain_sele="A",                # Target chain ID
+    start_frame=0,                 # First frame to analyze
+    end_frame=None                 # Last frame (None = all frames)
+)
+```
+
+**What it does**:
+1. Reads frames from your trajectory, slices them, computes RMSX (slice-wise RMSF).
+2. Also calculates RMSD and RMSF for the full simulation (if `triple=True`).
+3. Creates raster heatmaps (`.png`) with the chosen palette and optionally a triple-plot figure.
+4. Updates `.pdb` slice files in the output directory, storing RMSX values in the B-factor column.
+
+### 4. Multi-Chain Analysis
+
+If your system has multiple chains (e.g., chain A, chain B):
+
+```python
+from rmsx import all_chain_rmsx
+
+pdb_file_multi = "/path/to/multichain_structure.pdb"
+traj_file_multi = "/path/to/multichain_trajectory.xtc"
+output_dir_multi = "/path/to/multichain_output"
+
+all_chain_rmsx(
+    topology_file=pdb_file_multi,       # Multi-chain structure
+    trajectory_file=traj_file_multi,    # Trajectory
+    output_dir=output_dir_multi,        # Output folder
+    num_slices=12,                      # Number of slices
+    slice_size=None,                    # or specify frames per slice
     rscript_executable='Rscript',
     verbose=True,
     interpolate=False,
-    triple=False)
+    triple=True,
+    overwrite=True,
+    palette="turbo",
+    start_frame=0,
+    end_frame=None,
+    sync_color_scale=True  # Use a shared color scale across all chains
+)
 ```
-#### Parameters
 
-- `psf_file`: Path to the topology file
-- `dcd_file`: Path to the trajectory file
-- `pdb_file`: Path to the PDB file
-- `r_script_name`: Name of the R script for plotting (default: `'triple_plot_rmsx.R'`)
-- `output_dir`: Directory to save outputs (default: current directory)
-- `slice_size`: Number of frames per slice (default: 5)
-- `rscript_executable`: Command to execute R scripts (default: `'Rscript'`)
-- `verbose`: Enable verbose output (default: `True`)
-- `interpolate`: Enable interpolation in plots (default: `False`)
-- `triple`: Generate triple plots (default: `False`)
+**What it does**:
+1. Detects each chain ID in the topology.
+2. Runs per-chain RMSX (and RMSD/RMSF) analysis.
+3. If `sync_color_scale=True`, waits until all chains’ data is computed, finds a global min/max, and then plots each chain’s heatmap using the same color range.
 
----
+### 5. Flipbook Visualization
 
-## Examples
-
-### Example 1: Basic Usage
-
-Process a trajectory with default settings and generate plots.
-
-#### Command Line
-
-```
-rmsx_cli.py structure.psf trajectory.dcd structure.pdb
-```
-#### Python Script
+To **analyze** your system and **automatically generate** a 3D “flipbook” (multi-model PDB) for ChimeraX, use:
 
 ```python
-import os, sys
+from rmsx import run_rmsx_flipbook
 
-# Add the parent directory of 'rmsx' to sys.path
-sys.path.append('/content/rmsx/rmsx')
-print(sys.path)
-
-run_rmsx(psf_file='structure.psf', dcd_file='trajectory.dcd', pdb_file='structure.pdb' )
-```
-### Example 2: Advanced Options
-
-Process a trajectory, specify output directory and slice size, enable verbose output and triple plotting.
-
-#### Command Line
-```
-rmsx_cli.py structure.psf trajectory.dcd structure.pdb \ --output_dir analysis_results \ --slice_size 20 \ --verbose \ --triple 
-```
-#### Python Script
-
-```
-from rmsx.analysis import run_rmsx
-run_rmsx(psf_file='structure.psf', dcd_file='trajectory.dcd', pdb_file='structure.pdb', output_dir='analysis_results', slice_size=20, verbose=True,     triple=True)
+run_rmsx_flipbook(
+    topology_file=pdb_file,        # Topology (PDB/GRO)
+    trajectory_file=dcd_file,      # Trajectory
+    output_dir=output_dir,         # Output folder
+    num_slices=9,                  # or slice_size=...
+    rscript_executable='Rscript',
+    verbose=True,
+    interpolate=False,
+    triple=True,                   # Also generate RMSD & RMSF plots
+    overwrite=True,
+    palette="mako",
+    spacingFactor="0.6",           # Space out models for clarity
+    start_frame=0,
+    end_frame=None
+)
 ```
 
-### Example 3: Selecting a Specific Chain
+1. Produces the RMSX heatmaps/plots just like `run_rmsx`.
+2. Writes multiple **PDB models** (one per time slice) into a single file.
+3. Launches UCSF ChimeraX (if installed) with the resulting “flipbook” so you can step through slices in 3D.  
+   - **Note**: In a notebook environment, the cell may not complete until you close ChimeraX.
 
-When you run the tool, it will prompt you to select a chain from your structure for analysis.
+### 6. Additional Notes
 
-
-`Available chains and their lengths (in residues): Chain A: 153 residues Chain B: 160 residues Please enter the chain ID you would like to analyze from the following options: A (153 residues), B (160 residues) Chain ID:`
-
-Enter the chain ID (e.g., `A`) to proceed with the analysis on that specific chain.
+- **Chain IDs**: If your PDB has chain “A” or “B”, but `chain_sele="C"` is passed, you’ll see errors or zero B-factors. Ensure the chain ID matches.
+- **Residue Numbering**: If your PDB numbering starts at 100, but your trajectory references 1–100, you might see zero B-factors. Make sure they match.
+- **ChimeraX**: [Download here](https://www.cgl.ucsf.edu/chimerax/download.html) if you’d like to visualize the flipbook.
+- **Jupyter Notebook Behavior**: If you call `run_rmsx_flipbook` inside a Jupyter cell, ChimeraX runs interactively. The next cell won’t run until you **close** ChimeraX (or run it in detached mode).
 
 ---
 
-### Getting Help
-
-If you encounter issues not covered here:
-
-- Check the documentation and examples.
-- Open an issue on the GitHub repository.
-- Contact the maintainer via email.
-
----
-
-## Additional Resources
-
-- **MDAnalysis Documentation**: MDAnalysis User Guide
-- **R Documentation**: [R Project](https://www.r-project.org/)
-
----
-
-## Contact Information
-
-If you have any questions, suggestions, or need assistance, please feel free to contact the maintainer:
-
-- **Email**: fpberuld@cougarnet.uh.edu
-- **GitHub Issues**: [GitHub Repository Issues](https://github.com/finn2400/rmsx/issues)
-
----
-
-## License
-
-This project is licensed under the MIT License. 
----
-
-Thank you for using the RMSX Trajectory Analysis Tool! We hope this tutorial has helped you set up and run the tool effectively. Happy analyzing!
+**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check out the [notebooks directory](./notebooks/) and open an [issue on GitHub](https://github.com/AntunesLab/rmsx/issues) if you need further assistance.
