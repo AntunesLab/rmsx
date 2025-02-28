@@ -43,6 +43,10 @@ warnings.filterwarnings(
     module="MDAnalysis.coordinates.PDB"
 )
 
+# Seems to be still noisy, adding these to remove unhelpful information that covers actual warnings
+warnings.filterwarnings("ignore", message="Element information is missing, elements attribute will not be populated")
+warnings.filterwarnings("ignore", message="Found missing chainIDs")
+
 import os
 import re
 import sys
