@@ -807,7 +807,6 @@ def run_rmsx(
         chain_atoms = u_top.select_atoms(f'segid {chain}')
         num_residues = len(chain_atoms.residues)
         chain_info[chain] = num_residues
-
     if chain_sele is None:
         if verbose:
             print("Available chains and their lengths (in residues):")
