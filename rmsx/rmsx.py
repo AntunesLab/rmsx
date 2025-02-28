@@ -243,11 +243,34 @@ def process_trajectory_slices_by_size(
 
     all_data = pd.DataFrame()
 
+    # for i in range(n_slices):
+    #     slice_start = start_frame + i * slice_size
+    #     slice_end = slice_start + slice_size  # stop is exclusive in RMSF.run
+    #     # Move to the start frame and write the first-frame PDB
+    #     u.trajectory[slice_start]
+    #     coord_path = os.path.join(output_dir, f'slice_{i + 1}_first_frame.pdb')
+    #     with mda.Writer(coord_path, atoms_to_analyze.n_atoms, multiframe=False) as coord_writer:
+    #         coord_writer.write(atoms_to_analyze)
+    #     if verbose:
+    #         print(f"First frame of slice {i + 1} written to {coord_path}")
+    #
+    #     rmsf_calc = RMSF(atoms_to_analyze)
+    #     rmsf_calc.run(start=slice_start, stop=slice_end)
+
+    #seeing if this fixes the issue with psf loading of files.
     for i in range(n_slices):
         slice_start = start_frame + i * slice_size
         slice_end = slice_start + slice_size  # stop is exclusive in RMSF.run
-        # Move to the start frame and write the first-frame PDB
+
+        # Update to the desired frame
         u.trajectory[slice_start]
+
+        # Re-run the selection to get the current frame’s coordinates
+        atoms_to_analyze = u.select_atoms(selection_str)
+        if len(atoms_to_analyze) == 0:
+            raise ValueError(
+                f"Selection returned empty at frame {slice_start}. Check your selection or coordinate file.")
+
         coord_path = os.path.join(output_dir, f'slice_{i + 1}_first_frame.pdb')
         with mda.Writer(coord_path, atoms_to_analyze.n_atoms, multiframe=False) as coord_writer:
             coord_writer.write(atoms_to_analyze)
@@ -1054,14 +1077,14 @@ def run_rmsx_flipbook(
     triple=False,
     overwrite=False,
     palette='viridis',
-    flipbook_min_bfactor=None,
-    flipbook_max_bfactor=None,
     spacingFactor="1",
     start_frame=0,
     end_frame=None,
     analysis_type="protein and name CA",
     manual_length_ns=None,
-    summary_n=3
+    summary_n=3,
+    flipbook_min_bfactor=None,
+    flipbook_max_bfactor=None
 ):
     """
     Run RMSX analysis and generate a FlipBook visualization, syncing the color scale
