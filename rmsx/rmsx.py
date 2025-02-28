@@ -813,8 +813,8 @@ def run_rmsx(
             print("Available chains and their lengths (in residues):")
             for chain, length in chain_info.items():
                 print(f"Chain {chain}: {length} residues")
-            chain_list = ", ".join(
-                [f"{chain} ({length} residues)" for chain, length in chain_info.items()]
+        chain_list = ", ".join(
+            [f"{chain} ({length} residues)" for chain, length in chain_info.items()]
             )
         selected_chain = input(
             f"Please enter the chain ID you would like to analyze from the following options:\n{chain_list}\nChain ID: "
