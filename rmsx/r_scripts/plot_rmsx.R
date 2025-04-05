@@ -32,7 +32,6 @@ sapply(packages, install_if_not_present)
 ####
 # List of required packages
 packages <- c("ggplot2", "viridis", "dplyr", "tidyr", "stringr", "readr", "gridExtra", "grid")
-
 sapply(packages, install_if_not_present)
 
 
@@ -166,7 +165,8 @@ plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len, manua
   }
 
   # Set the fill label based on whether the data is log-transformed.
-  fill_label <- if (log_transform) "Log-Scaled RMSX" else "RMSX"
+  # Using a newline to break "Log-Scaled RMSX" into two lines.
+  fill_label <- if (log_transform) "Log-Scaled\nRMSX" else "RMSX"
 
   ggplot(rmsx_long, aes(Time_Point, Residue, fill = RMSF)) +
     geom_raster(interpolate = interpolate) +
