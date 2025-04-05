@@ -34,8 +34,6 @@ import warnings  # Import warnings first to suppress specific warnings before ot
 # 3. manual_length_ns: if set, we override the auto-calculated simulation length
 #    (based on dt * frames) and use the user-specified length in the output filename.
 # 4. verbose: only prints progress messages if True (default). If False, minimal output.
-# 5. NEW: log_transform parameter (default True) to optionally apply a log transformation
-#    to the RMSX values when generating plots.
 # ---------------------------------------------------------------------
 
 warnings.filterwarnings(
@@ -528,16 +526,13 @@ def create_r_plot(
     palette="plasma",
     min_val=None,
     max_val=None,
-    log_transform=True,  # NEW parameter added: log_transform (default True)
     verbose=True
 ):
     """
     Run the R script to generate RMSX plots and display the first image.
-    NEW: 'log_transform' controls whether to apply log transformation to numeric data.
     """
     interpolate_str = 'TRUE' if interpolate else 'FALSE'
     triple_str = 'TRUE' if triple else 'FALSE'
-    log_transform_str = 'TRUE' if log_transform else 'FALSE'  # NEW
 
     try:
         try:
@@ -554,7 +549,18 @@ def create_r_plot(
         if verbose:
             print(f"Found R script at {r_script_path}.")
 
-        # Build the command list including the new log_transform flag.
+        # cmd = [
+        #     rscript_executable,
+        #     str(r_script_path),
+        #     rmsx_csv,
+        #     rmsd_csv if rmsd_csv else "",
+        #     rmsf_csv if rmsf_csv else "",
+        #     interpolate_str,
+        #     triple_str,
+        #     palette,
+        #     str(min_val) if min_val is not None else "",
+        #     str(max_val) if max_val is not None else ""
+        # ]
         cmd = [
             rscript_executable,
             str(r_script_path),
@@ -566,7 +572,7 @@ def create_r_plot(
             palette,
             str(min_val) if min_val is not None else "",
             str(max_val) if max_val is not None else "",
-            log_transform_str  # NEW: log_transform flag passed as last argument
+            "TRUE"  # 9th argument: log_transform flag (default TRUE)
         ]
 
         if verbose:
@@ -771,8 +777,7 @@ def run_rmsx(
     make_plot=True,
     analysis_type="protein",
     summary_n=3,
-    manual_length_ns=None,
-    log_transform=True  # NEW: add log_transform parameter (default True)
+    manual_length_ns=None
 ):
     """
     Run the RMSX analysis on a specified trajectory range.
@@ -799,8 +804,6 @@ def run_rmsx(
         If provided, we automatically compute and return top/bottom RMSX data.
     - manual_length_ns : float or None
         If provided, overrides the auto-calculated simulation length for naming output files.
-    - log_transform : bool (NEW)
-        If True, the R script will log-transform numeric data (default True).
 
     Returns
     -------
@@ -954,8 +957,7 @@ def run_rmsx(
             interpolate=interpolate,
             triple=triple,
             palette=palette,
-            verbose=verbose,
-            log_transform=log_transform  # NEW: pass log_transform flag
+            verbose=verbose
         )
     else:
         if verbose:
@@ -989,15 +991,13 @@ def all_chain_rmsx(
     sync_color_scale=False,
     analysis_type="protein",
     manual_length_ns=None,
-    summary_n=3,
-    log_transform=True  # NEW: add log_transform parameter (default True)
+    summary_n=3
 ):
     """
     Perform RMSX analysis for all chains in the topology file.
 
     If sync_color_scale=True, we skip immediate plotting in run_rmsx
     and do a global min/max pass after analyzing all chains.
-    NEW: log_transform is passed to control log transformation in plots.
     """
     u_top = mda.Universe(topology_file)
     chain_ids = np.unique(u_top.atoms.segids)
@@ -1029,8 +1029,7 @@ def all_chain_rmsx(
             make_plot=chain_make_plot,
             analysis_type=analysis_type,
             summary_n=summary_n,
-            manual_length_ns=manual_length_ns,
-            log_transform=log_transform  # NEW: pass log_transform flag
+            manual_length_ns=manual_length_ns
         )
 
         chain_output_dir = os.path.join(output_dir, f"chain_{chain}_rmsx")
@@ -1076,8 +1075,7 @@ def all_chain_rmsx(
                 palette=palette,
                 min_val=global_min,
                 max_val=global_max,
-                verbose=verbose,
-                log_transform=log_transform  # NEW: pass log_transform flag
+                verbose=verbose
             )
 
     return combined_dir
@@ -1102,13 +1100,11 @@ def run_rmsx_flipbook(
     manual_length_ns=None,
     summary_n=3,
     flipbook_min_bfactor=None,
-    flipbook_max_bfactor=None,
-    log_transform=True  # NEW: add log_transform parameter (default True)
+    flipbook_max_bfactor=None
 ):
     """
     Run RMSX analysis and generate a FlipBook visualization, syncing the color scale
     across all chains by default.
-    NEW: log_transform is passed to control log transformation in plots.
     """
     combined_dir = all_chain_rmsx(
         topology_file=topology_file,
@@ -1127,8 +1123,7 @@ def run_rmsx_flipbook(
         sync_color_scale=True,
         analysis_type=analysis_type,
         manual_length_ns=manual_length_ns,
-        summary_n=summary_n,
-        log_transform=log_transform  # NEW: pass log_transform flag
+        summary_n=summary_n
     )
 
     run_flipbook(

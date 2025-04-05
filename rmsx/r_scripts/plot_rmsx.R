@@ -76,8 +76,6 @@ parse_args <- function() {
     manual_max <- as.numeric(args[8])
   }
 
-
-
   list(
     csv_path = args[1],
     rmsd = args[2],
@@ -87,7 +85,7 @@ parse_args <- function() {
     palette = args[6],
     manual_min = manual_min,
     manual_max = manual_max,
-    log_transform =  ifelse("TRUE" == args[9], TRUE, FALSE)
+    log_transform = ifelse("TRUE" == args[9], TRUE, FALSE)
   )
 }
 
@@ -243,7 +241,8 @@ plot_triple <- function(rmsx_plot, rmsd_plot, rmsf_plot) {
 #' @details
 #' - Parses arguments to get CSV paths and options.
 #' - Reads the RMSX data and summarizes it.
-#' - If log transformation is enabled, applies the natural logarithm (using log1p) to all numeric columns.
+#' - If log transformation is enabled, applies the natural logarithm (using log1p) to all numeric columns
+#'   except the first two (ResidueID and ChainID).
 #' - For each Chain ID in the data:
 #'   1. Processes the data to create RMSX plots with proper time alignment.
 #'   2. Saves the RMSX plot.
@@ -253,11 +252,12 @@ main <- function() {
   args <- parse_args()
   rmsx_raw <- read_and_summarize_csv(args$csv_path)
 
-  # Optional log transformation on all numeric columns (excluding non-numeric, e.g., ChainID)
+  # Optional log transformation on all numeric columns except the first two (ResidueID and ChainID)
   if (args$log_transform) {
-    message("Applying log transformation using log1p to numeric columns.")
-    numeric_cols <- sapply(rmsx_raw, is.numeric)
-    rmsx_raw[numeric_cols] <- lapply(rmsx_raw[numeric_cols], log1p)
+    message("Applying log transformation using log1p to numeric columns (excluding ResidueID and ChainID).")
+    # Only transform columns 3 onward:
+    numeric_cols <- sapply(rmsx_raw[, -c(1,2)], is.numeric)
+    rmsx_raw[, -c(1,2)] <- lapply(rmsx_raw[, -c(1,2)], log1p)
   }
 
   for (id in unique(rmsx_raw$ChainID)) {
