@@ -113,12 +113,13 @@ read_and_summarize_csv <- function(csv_path) {
 #' @param palette The viridis color palette option to use.
 #' @param manual_min Optional numeric lower limit for color scale, NA if not used.
 #' @param manual_max Optional numeric upper limit for color scale, NA if not used.
+#' @param log_transform Logical flag to indicate if data has been log-transformed.
 #' @return A ggplot object representing the RMSX plot for the given chain.
 #'
 #' @details
 #' This function extracts data for one specific Chain ID. It determines the simulation length
 #' from the filename and calculates the spacing (step_size) between time points.
-process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palette, manual_min, manual_max) {
+process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palette, manual_min, manual_max, log_transform) {
   rmsx <- rmsx_raw %>%
     filter(ChainID == id) %>%
     select(-ChainID)
@@ -139,7 +140,7 @@ process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palett
   rmsx_long <- pivot_longer(rmsx, cols = -Residue, names_to = "Time_Point", values_to = "RMSF")
   rmsx_long$Time_Point <- as.numeric(rmsx_long$Time_Point)
 
-  plot_rmsx(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max)
+  plot_rmsx(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max, log_transform)
 }
 
 #' @title plot_rmsx
@@ -152,9 +153,10 @@ process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palett
 #' @param sim_len The total simulation length in ns.
 #' @param manual_min Optional numeric lower limit for color scale, NA if not used.
 #' @param manual_max Optional numeric upper limit for color scale, NA if not used.
+#' @param log_transform Logical flag to indicate if data has been log-transformed.
 #'
 #' @return A ggplot object of the RMSX raster plot.
-plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max) {
+plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max, log_transform = FALSE) {
   # If both manual_min and manual_max are numeric (not NA), pass them as color limits.
   # Otherwise, omit the 'limits' argument to let scale_fill_viridis auto-scale.
   fill_scale <- if (!is.na(manual_min) && !is.na(manual_max)) {
@@ -163,13 +165,16 @@ plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len, manua
     scale_fill_viridis(option = palette)
   }
 
+  # Set the fill label based on whether the data is log-transformed.
+  fill_label <- if (log_transform) "Log-Scaled RMSX" else "RMSX"
+
   ggplot(rmsx_long, aes(Time_Point, Residue, fill = RMSF)) +
     geom_raster(interpolate = interpolate) +
     fill_scale +
     coord_cartesian(xlim = c(0, sim_len)) +
     theme_minimal() +
     theme(legend.position = "left") +
-    labs(x = "Time (ns)", y = "Residue (Index)", fill = "RMSX")
+    labs(x = "Time (ns)", y = "Residue (Index)", fill = fill_label)
 }
 
 #' @title save_plot
@@ -256,16 +261,16 @@ main <- function() {
   if (args$log_transform) {
     message("Applying log transformation using log1p to numeric columns (excluding ResidueID and ChainID).")
     # Only transform columns 3 onward:
-    numeric_cols <- sapply(rmsx_raw[, -c(1,2)], is.numeric)
     rmsx_raw[, -c(1,2)] <- lapply(rmsx_raw[, -c(1,2)], log1p)
   }
 
   for (id in unique(rmsx_raw$ChainID)) {
-    # Pass manual_min and manual_max to the plot
+    # Pass manual_min, manual_max, and log_transform to the plot
     rmsx_plot <- process_data_by_chain_id(
       rmsx_raw, id, args$csv_path,
       args$interpolate, args$palette,
-      args$manual_min, args$manual_max
+      args$manual_min, args$manual_max,
+      args$log_transform
     )
 
     save_plot(rmsx_plot, args$csv_path, id)
