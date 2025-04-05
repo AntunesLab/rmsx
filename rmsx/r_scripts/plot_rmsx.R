@@ -163,7 +163,7 @@ plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len, manua
   }
 
   # Change the legend label if log_transform is TRUE without re-transforming the data
-  fill_label <- if (log_transform) "Log-Scaled\nRMSX" else "RMSX"
+  fill_label <- if (log_transform) "Log-\nScaled\nRMSX" else "RMSX"
 
   ggplot(rmsx_long, aes(Time_Point, Residue, fill = RMSF)) +
     geom_raster(interpolate = interpolate) +
