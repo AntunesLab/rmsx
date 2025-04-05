@@ -19,7 +19,6 @@ import warnings  # Import warnings first to suppress specific warnings before ot
 # If you want a manual simulation length in ns, specify manual_length_ns=100 (for example).
 # If you don’t want verbose output, set verbose=False.
 
-
 # ---------------------------------------------------------------------
 #                  Notes / Documentation
 # ---------------------------------------------------------------------
@@ -34,8 +33,9 @@ import warnings  # Import warnings first to suppress specific warnings before ot
 # 3. manual_length_ns: if set, we override the auto-calculated simulation length
 #    (based on dt * frames) and use the user-specified length in the output filename.
 # 4. verbose: only prints progress messages if True (default). If False, minimal output.
-# 5. NEW: log_transform parameter (default True) to optionally apply a log transformation
-#    to the RMSX values when generating plots.
+# 5. NEW: log_transform (default True) controls whether RMSX data is log-scaled.
+#    If True, the CSV will contain log-scaled RMSX values and the PDB files will be updated
+#    using these log-scaled values (with the slice column names appended with "_log").
 # ---------------------------------------------------------------------
 
 warnings.filterwarnings(
@@ -82,10 +82,8 @@ def get_selection_string(analysis_type="protein", chain_sele=None):
         If provided, we append 'and segid <chain_sele>'.
     """
     if analysis_type.lower() == "dna":
-        # Example: select phosphate atoms in nucleic acid
         base_selection = "nucleic and name P"
     else:
-        # Default to protein alpha carbons
         base_selection = "protein and name CA"
 
     if chain_sele:
@@ -117,11 +115,9 @@ def summarize_rmsx(rmsx_csv, n=3, print_output=True):
     """
     df = pd.read_csv(rmsx_csv)
 
-    # Identify numeric columns except 'ResidueID' and 'ChainID'
     skip_cols = ['ResidueID', 'ChainID']
     numeric_cols = [c for c in df.columns if c not in skip_cols]
 
-    # Melt the dataframe so each slice (column) becomes a row
     melted = df.melt(
         id_vars=skip_cols,
         value_vars=numeric_cols,
@@ -129,7 +125,6 @@ def summarize_rmsx(rmsx_csv, n=3, print_output=True):
         value_name='RMSX'
     )
 
-    # Sort to find top/bottom n
     top_n_df = melted.nlargest(n, 'RMSX')
     bottom_n_df = melted.nsmallest(n, 'RMSX')
 
@@ -174,12 +169,11 @@ def check_directory(output_dir, overwrite=False, verbose=True):
                 print(f"Overwriting existing directory: {output_dir}")
             return True
         else:
-            # User input is essential, so we do not wrap it in 'verbose'
             response = input(
                 f"The directory '{output_dir}' already exists. Overwrite? (y/n): "
             )
             return response.strip().lower() == 'y'
-    return True  # Proceed if the directory does not exist
+    return True
 
 
 def setup_directory(output_dir, overwrite=False, verbose=True):
@@ -188,7 +182,6 @@ def setup_directory(output_dir, overwrite=False, verbose=True):
     """
     if check_directory(output_dir, overwrite=overwrite, verbose=verbose):
         if os.path.exists(output_dir):
-            # Clear existing directory content
             for file in os.listdir(output_dir):
                 file_path = os.path.join(output_dir, file)
                 try:
@@ -205,9 +198,7 @@ def setup_directory(output_dir, overwrite=False, verbose=True):
             print(f"The directory '{output_dir}' is ready for use.")
     else:
         if verbose:
-            print(
-                f"Process terminated by user. The directory '{output_dir}' will not be overwritten."
-            )
+            print(f"Process terminated by user. The directory '{output_dir}' will not be overwritten.")
         raise RuntimeError("User chose not to overwrite the existing directory.")
 
 
@@ -249,33 +240,14 @@ def process_trajectory_slices_by_size(
 
     all_data = pd.DataFrame()
 
-    # for i in range(n_slices):
-    #     slice_start = start_frame + i * slice_size
-    #     slice_end = slice_start + slice_size  # stop is exclusive in RMSF.run
-    #     # Move to the start frame and write the first-frame PDB
-    #     u.trajectory[slice_start]
-    #     coord_path = os.path.join(output_dir, f'slice_{i + 1}_first_frame.pdb')
-    #     with mda.Writer(coord_path, atoms_to_analyze.n_atoms, multiframe=False) as coord_writer:
-    #         coord_writer.write(atoms_to_analyze)
-    #     if verbose:
-    #         print(f"First frame of slice {i + 1} written to {coord_path}")
-    #
-    #     rmsf_calc = RMSF(atoms_to_analyze)
-    #     rmsf_calc.run(start=slice_start, stop=slice_end)
-
-    #seeing if this fixes the issue with psf loading of files.
     for i in range(n_slices):
         slice_start = start_frame + i * slice_size
         slice_end = slice_start + slice_size  # stop is exclusive in RMSF.run
 
-        # Update to the desired frame
         u.trajectory[slice_start]
-
-        # Re-run the selection to get the current frame’s coordinates
         atoms_to_analyze = u.select_atoms(selection_str)
         if len(atoms_to_analyze) == 0:
-            raise ValueError(
-                f"Selection returned empty at frame {slice_start}. Check your selection or coordinate file.")
+            raise ValueError(f"Selection returned empty at frame {slice_start}. Check your selection or coordinate file.")
 
         coord_path = os.path.join(output_dir, f'slice_{i + 1}_first_frame.pdb')
         with mda.Writer(coord_path, atoms_to_analyze.n_atoms, multiframe=False) as coord_writer:
@@ -300,7 +272,6 @@ def process_trajectory_slices_by_size(
             print(f"Slice {i + 1}: RMSF computed for frames {slice_start} to {slice_end - 1} ({slice_size} frames)")
 
     if not all_data.empty:
-        # Add ResidueID and ChainID columns
         all_data.insert(0, 'ChainID', [res.atoms[0].segid for res in atoms_to_analyze.residues])
         all_data.insert(0, 'ResidueID', [res.resid for res in atoms_to_analyze.residues])
 
@@ -337,7 +308,7 @@ def process_trajectory_slices_by_num(
         print(f"Number of slices: {num_slices}")
 
     base_size = total_size // num_slices
-    slice_sizes = [base_size] * num_slices  # All slices have the same size
+    slice_sizes = [base_size] * num_slices
 
     selection_str = get_selection_string(analysis_type=analysis_type, chain_sele=chain_sele)
     atoms_to_analyze = u.select_atoms(selection_str)
@@ -374,7 +345,6 @@ def process_trajectory_slices_by_num(
             print(f"Slice {i + 1}: RMSF computed for frames {slice_start} to {slice_end - 1} ({size} frames)")
 
     if not all_data.empty:
-        # Add ResidueID and ChainID columns
         all_data.insert(0, 'ChainID', [res.atoms[0].segid for res in atoms_to_analyze.residues])
         all_data.insert(0, 'ResidueID', [res.resid for res in atoms_to_analyze.residues])
 
@@ -401,11 +371,10 @@ def file_namer(
     If manual_length_ns is provided, override the auto-calculated length.
     """
     if manual_length_ns is not None:
-        # If user manually specifies length, just use it
         simulation_length_ns = manual_length_ns
     else:
         simulation_length_fs = extract_simulation_length(u, frames_used=frames_used)
-        simulation_length_ns = simulation_length_fs / 1e6  # Convert fs to ns
+        simulation_length_ns = simulation_length_fs / 1e6
 
     sim_name = os.path.basename(example_file)
     sim_name = os.path.splitext(sim_name)[0]
@@ -429,7 +398,7 @@ def extract_simulation_length(u, frames_used=None):
     Extract simulation length in fs based on frames_used.
     If frames_used is None, use entire trajectory.
     """
-    timestep_fs = u.trajectory.dt * 1000.0  # ps -> fs
+    timestep_fs = u.trajectory.dt * 1000.0
     if frames_used is None:
         frames_used = len(u.trajectory)
     total_time_fs = timestep_fs * frames_used
@@ -499,16 +468,12 @@ def calculate_rmsf(
         print(f"Number of residues: {num_residues}")
     rmsf_list = rmsf_values.tolist()
     if len(rmsf_list) != num_residues:
-        raise ValueError(
-            f"Length of rmsf_list ({len(rmsf_list)}) != number of residues ({num_residues})"
-        )
+        raise ValueError(f"Length of rmsf_list ({len(rmsf_list)}) != number of residues ({num_residues})")
 
-    rmsf_whole_traj = pd.DataFrame(
-        {
+    rmsf_whole_traj = pd.DataFrame({
             'ResidueID': [residue.resid for residue in atoms_to_analyze.residues],
             'RMSF': rmsf_list,
-        }
-    )
+        })
 
     if output_dir:
         rmsf_output_filepath = os.path.join(output_dir, 'rmsf.csv')
@@ -528,16 +493,15 @@ def create_r_plot(
     palette="plasma",
     min_val=None,
     max_val=None,
-    log_transform=True,  # NEW parameter added: log_transform (default True)
+    log_transform=True,
     verbose=True
 ):
     """
     Run the R script to generate RMSX plots and display the first image.
-    NEW: 'log_transform' controls whether to apply log transformation to numeric data.
     """
     interpolate_str = 'TRUE' if interpolate else 'FALSE'
     triple_str = 'TRUE' if triple else 'FALSE'
-    log_transform_str = 'TRUE' if log_transform else 'FALSE'  # NEW
+    log_transform_str = 'TRUE' if log_transform else 'FALSE'
 
     try:
         try:
@@ -554,7 +518,6 @@ def create_r_plot(
         if verbose:
             print(f"Found R script at {r_script_path}.")
 
-        # Build the command list including the new log_transform flag.
         cmd = [
             rscript_executable,
             str(r_script_path),
@@ -566,7 +529,7 @@ def create_r_plot(
             palette,
             str(min_val) if min_val is not None else "",
             str(max_val) if max_val is not None else "",
-            log_transform_str  # NEW: log_transform flag passed as last argument
+            log_transform_str
         ]
 
         if verbose:
@@ -586,17 +549,13 @@ def create_r_plot(
 
     except FileNotFoundError:
         if verbose:
-            print(
-                f"Error: Rscript executable not found: {rscript_executable}. "
-                "Please ensure R is installed and 'Rscript' is in your PATH."
-            )
+            print(f"Error: Rscript executable not found: {rscript_executable}. Please ensure R is installed and 'Rscript' is in your PATH.")
         return
     except Exception as e:
         if verbose:
             print(f"An unexpected error occurred: {e}")
         return
 
-    # Display the first PNG found
     try:
         rmsx_path = Path(rmsx_csv).resolve()
         directory = rmsx_path.parent
@@ -615,7 +574,6 @@ def create_r_plot(
         else:
             if verbose:
                 print("No PNG files found in the specified directory.")
-
     except Exception as e:
         if verbose:
             print(f"An error occurred while searching for PNG files: {e}")
@@ -625,10 +583,16 @@ def update_pdb_bfactor(coord_file, rmsx_df, silent=False, verbose=True):
     """
     Update the B-factor field in a PDB file with RMSX values.
     If 'silent' is True, do not print. If 'silent' is False, print only if 'verbose' is True.
+    If log-scaled data was used, the function will look for columns with '_log.dcd'.
     """
     coord_file_base_name = os.path.basename(coord_file)
+    # Assumes filename structure: <prefix>_<slice_number>_first_frame.pdb
     slice_number = int(coord_file_base_name.split('_')[1])
-    rmsx_column = f'slice_{slice_number}.dcd'
+    candidate = f"slice_{slice_number}_log.dcd"
+    if candidate in rmsx_df.columns:
+        rmsx_column = candidate
+    else:
+        rmsx_column = f"slice_{slice_number}.dcd"
 
     if rmsx_column not in rmsx_df.columns:
         if not silent and verbose:
@@ -643,9 +607,7 @@ def update_pdb_bfactor(coord_file, rmsx_df, silent=False, verbose=True):
         if line.startswith(('ATOM', 'HETATM')):
             residue_number = int(line[22:26].strip())
             if residue_number in rmsx_df['ResidueID'].values:
-                rmsx_value = rmsx_df.loc[
-                    rmsx_df['ResidueID'] == residue_number, rmsx_column
-                ].values[0]
+                rmsx_value = rmsx_df.loc[rmsx_df['ResidueID'] == residue_number, rmsx_column].values[0]
                 new_bfactor = f"{rmsx_value:6.2f}"
                 updated_line = line[:60] + new_bfactor + line[66:]
                 updated_pdb_lines.append(updated_line)
@@ -772,7 +734,7 @@ def run_rmsx(
     analysis_type="protein",
     summary_n=3,
     manual_length_ns=None,
-    log_transform=True  # NEW: add log_transform parameter (default True)
+    log_transform=True
 ):
     """
     Run the RMSX analysis on a specified trajectory range.
@@ -799,9 +761,8 @@ def run_rmsx(
         If provided, we automatically compute and return top/bottom RMSX data.
     - manual_length_ns : float or None
         If provided, overrides the auto-calculated simulation length for naming output files.
-    - log_transform : bool (NEW)
-        If True, the R script will log-transform numeric data (default True).
-
+    - log_transform : bool
+        If True, the RMSX data will be log-scaled and the CSV columns renamed accordingly.
     Returns
     -------
     summary_tuple : (pd.DataFrame, pd.DataFrame) or None
@@ -813,7 +774,6 @@ def run_rmsx(
         base_name = os.path.splitext(os.path.basename(topology_file))[0]
         output_dir = os.path.join(os.getcwd(), f"{base_name}_rmsx")
 
-    # Load a minimal universe for chain info
     u_top = mda.Universe(topology_file)
     chain_ids = np.unique(u_top.atoms.segids)
     chain_info = {}
@@ -826,12 +786,8 @@ def run_rmsx(
             print("Available chains and their lengths (in residues):")
             for chain, length in chain_info.items():
                 print(f"Chain {chain}: {length} residues")
-        chain_list = ", ".join(
-            [f"{chain} ({length} residues)" for chain, length in chain_info.items()]
-            )
-        selected_chain = input(
-            f"Please enter the chain ID you would like to analyze from the following options:\n{chain_list}\nChain ID: "
-        ).strip()
+        chain_list = ", ".join([f"{chain} ({length} residues)" for chain, length in chain_info.items()])
+        selected_chain = input(f"Please enter the chain ID you would like to analyze from the following options:\n{chain_list}\nChain ID: ").strip()
         if selected_chain not in chain_ids:
             if verbose:
                 print(f"Chain '{selected_chain}' is not available in the topology file.")
@@ -847,10 +803,8 @@ def run_rmsx(
     chain_output_dir = os.path.join(output_dir, f"chain_{chain_sele}_rmsx")
     setup_directory(chain_output_dir, overwrite=overwrite, verbose=verbose)
 
-    # Create the main universe with trajectory
     u = mda.Universe(topology_file, trajectory_file)
 
-    # If end_frame not specified, use last frame
     if end_frame is None:
         end_frame = len(u.trajectory) - 1
 
@@ -870,98 +824,65 @@ def run_rmsx(
     if verbose:
         print("Starting analysis...")
 
-    # Slicing approach
     if num_slices is not None:
         if verbose:
             print(f"Using the slicing method with num_slices={num_slices}")
         all_data, adjusted_total_size = process_trajectory_slices_by_num(
-            u,
-            chain_output_dir,
-            used_frames_count,
-            num_slices,
-            chain_sele=chain_sele,
-            start_frame=start_frame,
-            analysis_type=analysis_type,
-            verbose=verbose
+            u, chain_output_dir, used_frames_count, num_slices,
+            chain_sele=chain_sele, start_frame=start_frame,
+            analysis_type=analysis_type, verbose=verbose
         )
     elif slice_size is not None:
         if verbose:
             print(f"Using the slicing method with slice_size={slice_size}")
         all_data, adjusted_total_size = process_trajectory_slices_by_size(
-            u,
-            chain_output_dir,
-            used_frames_count,
-            slice_size,
-            chain_sele=chain_sele,
-            start_frame=start_frame,
-            analysis_type=analysis_type,
-            verbose=verbose
+            u, chain_output_dir, used_frames_count, slice_size,
+            chain_sele=chain_sele, start_frame=start_frame,
+            analysis_type=analysis_type, verbose=verbose
         )
-        # We haven't saved the CSV yet, so do that now:
-        # The actual saving is below, after we create the filename
     else:
         if verbose:
             print("Error: You must specify either num_slices or slice_size.")
         raise RuntimeError("No slicing method specified.")
 
-    # Create the RMSX CSV filename
-    rmsx_csv = file_namer(
-        chain_output_dir,
-        trajectory_file,
-        "csv",
-        u=u,
-        frames_used=adjusted_total_size,
-        manual_length_ns=manual_length_ns
-    )
-    # Save the combined data
+    # If log_transform is True, transform all numeric columns (except ResidueID and ChainID)
+    # and rename slice columns by appending "_log" before the .dcd extension.
+    if log_transform:
+        slice_cols = [col for col in all_data.columns if col not in ['ResidueID', 'ChainID']]
+        all_data[slice_cols] = all_data[slice_cols].apply(np.log1p)
+        new_names = {col: col.replace(".dcd", "_log.dcd") for col in slice_cols}
+        all_data.rename(columns=new_names, inplace=True)
+
+    rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u, frames_used=adjusted_total_size, manual_length_ns=manual_length_ns)
     all_data.to_csv(rmsx_csv, index=False)
     if verbose:
         print(f"RMSX data saved to {rmsx_csv}")
 
-    # RMSD
     rmsd_csv = calculate_rmsd(
-        u,
-        chain_output_dir,
-        chain_sele=chain_sele,
-        start_frame=start_frame,
-        end_frame=(start_frame + adjusted_total_size - 1),
-        analysis_type=analysis_type,
-        verbose=verbose
+        u, chain_output_dir, chain_sele=chain_sele,
+        start_frame=start_frame, end_frame=(start_frame + adjusted_total_size - 1),
+        analysis_type=analysis_type, verbose=verbose
     )
-    # RMSF
     rmsf_csv = calculate_rmsf(
-        u,
-        chain_output_dir,
-        chain_sele=chain_sele,
-        start_frame=start_frame,
-        end_frame=(start_frame + adjusted_total_size - 1),
-        analysis_type=analysis_type,
-        verbose=verbose
+        u, chain_output_dir, chain_sele=chain_sele,
+        start_frame=start_frame, end_frame=(start_frame + adjusted_total_size - 1),
+        analysis_type=analysis_type, verbose=verbose
     )
 
-    # Update PDB B-factors
     update_all_pdb_bfactors(rmsx_csv, silent=(not verbose), verbose=verbose)
 
-    # Optional plot
     if make_plot:
         if verbose:
             print("Generating plots...")
         create_r_plot(
-            rmsx_csv,
-            rmsd_csv,
-            rmsf_csv,
-            rscript_executable=rscript_executable,
-            interpolate=interpolate,
-            triple=triple,
-            palette=palette,
-            verbose=verbose,
-            log_transform=log_transform  # NEW: pass log_transform flag
+            rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable=rscript_executable,
+            interpolate=interpolate, triple=triple, palette=palette,
+            verbose=verbose, log_transform=log_transform
         )
     else:
         if verbose:
             print("Skipping plot generation in run_rmsx() because make_plot=False.")
 
-    # Optional summary
     summary_tuple = None
     if summary_n is not None and isinstance(summary_n, int):
         if verbose:
@@ -990,14 +911,12 @@ def all_chain_rmsx(
     analysis_type="protein",
     manual_length_ns=None,
     summary_n=3,
-    log_transform=True  # NEW: add log_transform parameter (default True)
+    log_transform=True
 ):
     """
     Perform RMSX analysis for all chains in the topology file.
 
-    If sync_color_scale=True, we skip immediate plotting in run_rmsx
-    and do a global min/max pass after analyzing all chains.
-    NEW: log_transform is passed to control log transformation in plots.
+    If sync_color_scale=True, we skip immediate plotting in run_rmsx and do a global min/max pass after analyzing all chains.
     """
     u_top = mda.Universe(topology_file)
     chain_ids = np.unique(u_top.atoms.segids)
@@ -1010,27 +929,13 @@ def all_chain_rmsx(
             print(f"\nAnalyzing Chain {chain}...")
 
         chain_make_plot = not sync_color_scale
-        # Run RMSX for each chain
         _summary_tuple = run_rmsx(
-            topology_file=topology_file,
-            trajectory_file=trajectory_file,
-            output_dir=output_dir,
-            num_slices=num_slices,
-            slice_size=slice_size,
-            rscript_executable=rscript_executable,
-            verbose=verbose,
-            interpolate=interpolate,
-            triple=triple,
-            chain_sele=chain,
-            overwrite=overwrite,
-            palette=palette,
-            start_frame=start_frame,
-            end_frame=end_frame,
-            make_plot=chain_make_plot,
-            analysis_type=analysis_type,
-            summary_n=summary_n,
-            manual_length_ns=manual_length_ns,
-            log_transform=log_transform  # NEW: pass log_transform flag
+            topology_file=topology_file, trajectory_file=trajectory_file, output_dir=output_dir,
+            num_slices=num_slices, slice_size=slice_size, rscript_executable=rscript_executable,
+            verbose=verbose, interpolate=interpolate, triple=triple, chain_sele=chain, overwrite=overwrite,
+            palette=palette, start_frame=start_frame, end_frame=end_frame, make_plot=chain_make_plot,
+            analysis_type=analysis_type, summary_n=summary_n, manual_length_ns=manual_length_ns,
+            log_transform=log_transform
         )
 
         chain_output_dir = os.path.join(output_dir, f"chain_{chain}_rmsx")
@@ -1053,7 +958,6 @@ def all_chain_rmsx(
         if verbose:
             print(f"Single-chain analysis completed. Using directory: {combined_dir}")
 
-    # If sync_color_scale, do a global pass for min/max and re-plot
     if sync_color_scale and csv_paths:
         if verbose:
             print("\nComputing global RMSX min and max across all chains...")
@@ -1067,17 +971,10 @@ def all_chain_rmsx(
             rmsd_csv = csv_dir / "rmsd.csv"
             rmsf_csv = csv_dir / "rmsf.csv"
             create_r_plot(
-                rmsx_csv=str(csv_path),
-                rmsd_csv=str(rmsd_csv),
-                rmsf_csv=str(rmsf_csv),
-                rscript_executable=rscript_executable,
-                interpolate=interpolate,
-                triple=triple,
-                palette=palette,
-                min_val=global_min,
-                max_val=global_max,
-                verbose=verbose,
-                log_transform=log_transform  # NEW: pass log_transform flag
+                rmsx_csv=str(csv_path), rmsd_csv=str(rmsd_csv), rmsf_csv=str(rmsf_csv),
+                rscript_executable=rscript_executable, interpolate=interpolate, triple=triple,
+                palette=palette, min_val=global_min, max_val=global_max, verbose=verbose,
+                log_transform=log_transform
             )
 
     return combined_dir
@@ -1103,39 +1000,23 @@ def run_rmsx_flipbook(
     summary_n=3,
     flipbook_min_bfactor=None,
     flipbook_max_bfactor=None,
-    log_transform=True  # NEW: add log_transform parameter (default True)
+    log_transform=True
 ):
     """
     Run RMSX analysis and generate a FlipBook visualization, syncing the color scale
     across all chains by default.
-    NEW: log_transform is passed to control log transformation in plots.
     """
     combined_dir = all_chain_rmsx(
-        topology_file=topology_file,
-        trajectory_file=trajectory_file,
-        output_dir=output_dir,
-        num_slices=num_slices,
-        slice_size=slice_size,
-        rscript_executable=rscript_executable,
-        verbose=verbose,
-        interpolate=interpolate,
-        triple=triple,
-        overwrite=overwrite,
-        palette=palette,
-        start_frame=start_frame,
-        end_frame=end_frame,
-        sync_color_scale=True,
-        analysis_type=analysis_type,
-        manual_length_ns=manual_length_ns,
-        summary_n=summary_n,
-        log_transform=log_transform  # NEW: pass log_transform flag
+        topology_file=topology_file, trajectory_file=trajectory_file, output_dir=output_dir,
+        num_slices=num_slices, slice_size=slice_size, rscript_executable=rscript_executable, verbose=verbose,
+        interpolate=interpolate, triple=triple, overwrite=overwrite, palette=palette, start_frame=start_frame,
+        end_frame=end_frame, sync_color_scale=True, analysis_type=analysis_type, manual_length_ns=manual_length_ns,
+        summary_n=summary_n, log_transform=log_transform
     )
 
     run_flipbook(
-        directory=combined_dir,
-        palette=palette,
-        min_bfactor=flipbook_min_bfactor,
-        max_bfactor=flipbook_max_bfactor,
+        directory=combined_dir, palette=palette,
+        min_bfactor=flipbook_min_bfactor, max_bfactor=flipbook_max_bfactor,
         spacingFactor=spacingFactor
     )
 
@@ -1167,11 +1048,8 @@ def run_rmsx_flipbook(
 #     summary_n=5            # Summarize top/bottom 5
 # )
 # ---------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------
-# Example usage for single-chain RMSX analysis with uniform slice sizes
-# (Commented out; update paths/parameters to your environment)
+#
+# Example usage for single-chain RMSX analysis with uniform slice sizes:
 #
 # traj_file_single = "/path/to/your/single_chain_trajectory.dcd"
 # pdb_file_single = "/path/to/your/single_chain_protein.pdb"
@@ -1194,8 +1072,8 @@ def run_rmsx_flipbook(
 #     end_frame=None
 # )
 #
-#
 # Example usage for multi-chain RMSX analysis:
+#
 # traj_file_multi = "/path/to/your/multi_chain_trajectory.xtc"
 # pdb_file_multi = "/path/to/your/multi_chain_protein.pdb"
 # output_dir_multi = "/path/to/your/output_directory_multi_chain"
@@ -1218,10 +1096,10 @@ def run_rmsx_flipbook(
 # )
 #
 # Additional comments and to-do items:
-#   - Test with more MD file types to ensure there's no issue reading the simulation duration
+#   - Test with more MD file types to ensure there's no issue reading the simulation duration.
 #   - Could add 'hover over' to show time slice in the flipbook, etc.
-#   - Let user easily cut the simulation shorter by specifying frames
-#   - Possibly create a function that auto-finds output data for 3D plotting or flipbook
-#   - Consider applying log to RMSX columns for log-scale color mapping
-#   - Option for flipbook to handle single chain more seamlessly
+#   - Let user easily cut the simulation shorter by specifying frames.
+#   - Possibly create a function that auto-finds output data for 3D plotting or flipbook.
+#   - Consider applying log to RMSX columns for log-scale color mapping.
+#   - Option for flipbook to handle single chain more seamlessly.
 # ---------------------------------------------------------------------

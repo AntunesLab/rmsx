@@ -156,16 +156,13 @@ process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palett
 #'
 #' @return A ggplot object of the RMSX raster plot.
 plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max, log_transform = FALSE) {
-  # If both manual_min and manual_max are numeric (not NA), pass them as color limits.
-  # Otherwise, omit the 'limits' argument to let scale_fill_viridis auto-scale.
   fill_scale <- if (!is.na(manual_min) && !is.na(manual_max)) {
     scale_fill_viridis(option = palette, limits = c(manual_min, manual_max))
   } else {
     scale_fill_viridis(option = palette)
   }
 
-  # Set the fill label based on whether the data is log-transformed.
-  # Using a newline to break "Log-Scaled RMSX" into two lines.
+  # Change the legend label if log_transform is TRUE without re-transforming the data
   fill_label <- if (log_transform) "Log-Scaled\nRMSX" else "RMSX"
 
   ggplot(rmsx_long, aes(Time_Point, Residue, fill = RMSF)) +
@@ -246,8 +243,8 @@ plot_triple <- function(rmsx_plot, rmsd_plot, rmsf_plot) {
 #' @details
 #' - Parses arguments to get CSV paths and options.
 #' - Reads the RMSX data and summarizes it.
-#' - If log transformation is enabled, applies the natural logarithm (using log1p) to all numeric columns
-#'   except the first two (ResidueID and ChainID).
+#' - If log transformation is enabled, assumes the CSV already contains log-scaled data
+#'   (i.e., it does not apply log1p again).
 #' - For each Chain ID in the data:
 #'   1. Processes the data to create RMSX plots with proper time alignment.
 #'   2. Saves the RMSX plot.
@@ -257,11 +254,10 @@ main <- function() {
   args <- parse_args()
   rmsx_raw <- read_and_summarize_csv(args$csv_path)
 
-  # Optional log transformation on all numeric columns except the first two (ResidueID and ChainID)
+  # Instead of applying the log transformation here, we assume that if log_transform is TRUE,
+  # the CSV already contains log-scaled values.
   if (args$log_transform) {
-    message("Applying log transformation using log1p to numeric columns (excluding ResidueID and ChainID).")
-    # Only transform columns 3 onward:
-    rmsx_raw[, -c(1,2)] <- lapply(rmsx_raw[, -c(1,2)], log1p)
+    message("Log transformation selected: assuming CSV contains log-scaled RMSX values.")
   }
 
   for (id in unique(rmsx_raw$ChainID)) {
