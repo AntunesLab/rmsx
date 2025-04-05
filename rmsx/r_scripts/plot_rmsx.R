@@ -12,7 +12,7 @@
 # library(readr)
 # library(reshape2)
 # library(gridExtra)
-# library(grid)
+# library(grid
 # library(cowplot)
 
 packages <- c("viridis", "tidyverse")
@@ -48,9 +48,10 @@ sapply(packages, install_if_not_present)
 #'   - palette: The color palette name (for viridis).
 #'   - manual_min: Optional numeric lower limit for the color scale.
 #'   - manual_max: Optional numeric upper limit for the color scale.
+#'   - log_transform: Optional logical flag to apply log transformation to numeric data.
 #'
 #' @details This function reads arguments passed to the script. If no arguments are found,
-#' it stops. If additional arguments (7, 8) are present, they are parsed as numbers.
+#' it stops. If additional arguments (7, 8, 9) are present, they are parsed as numbers or logical.
 parse_args <- function() {
   args <- commandArgs(trailingOnly = TRUE)
 
@@ -75,6 +76,8 @@ parse_args <- function() {
     manual_max <- as.numeric(args[8])
   }
 
+
+
   list(
     csv_path = args[1],
     rmsd = args[2],
@@ -83,7 +86,8 @@ parse_args <- function() {
     triple = ifelse("TRUE" == args[5], TRUE, FALSE),
     palette = args[6],
     manual_min = manual_min,
-    manual_max = manual_max
+    manual_max = manual_max,
+    log_transform =  ifelse("TRUE" == args[9], TRUE, FALSE)
   )
 }
 
@@ -192,7 +196,7 @@ save_plot <- function(rmsx_plot, csv_path, id) {
 #' @param RMSD The RMSD column.
 #' @return A ggplot object showing RMSD over frames.
 plot_rmsd <- function(rmsd, Frame, RMSD) {
-  ggplot(rmsd, aes(x=Frame, y=RMSD)) +
+  ggplot(rmsd, aes(x = Frame, y = RMSD)) +
     geom_line() +
     theme_minimal() +
     labs(x = "")
@@ -206,7 +210,7 @@ plot_rmsd <- function(rmsd, Frame, RMSD) {
 #' @param RMSF The RMSF column.
 #' @return A ggplot object showing RMSF per residue.
 plot_rmsf <- function(rmsf_whole_traj, ResidueID, RMSF) {
-  ggplot(rmsf_whole_traj, aes(x=ResidueID, y=RMSF)) +
+  ggplot(rmsf_whole_traj, aes(x = ResidueID, y = RMSF)) +
     geom_line() +
     theme_minimal() +
     coord_flip() +
@@ -239,6 +243,7 @@ plot_triple <- function(rmsx_plot, rmsd_plot, rmsf_plot) {
 #' @details
 #' - Parses arguments to get CSV paths and options.
 #' - Reads the RMSX data and summarizes it.
+#' - If log transformation is enabled, applies the natural logarithm (using log1p) to all numeric columns.
 #' - For each Chain ID in the data:
 #'   1. Processes the data to create RMSX plots with proper time alignment.
 #'   2. Saves the RMSX plot.
@@ -247,6 +252,13 @@ plot_triple <- function(rmsx_plot, rmsd_plot, rmsf_plot) {
 main <- function() {
   args <- parse_args()
   rmsx_raw <- read_and_summarize_csv(args$csv_path)
+
+  # Optional log transformation on all numeric columns (excluding non-numeric, e.g., ChainID)
+  if (args$log_transform) {
+    message("Applying log transformation using log1p to numeric columns.")
+    numeric_cols <- sapply(rmsx_raw, is.numeric)
+    rmsx_raw[numeric_cols] <- lapply(rmsx_raw[numeric_cols], log1p)
+  }
 
   for (id in unique(rmsx_raw$ChainID)) {
     # Pass manual_min and manual_max to the plot
