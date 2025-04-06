@@ -484,20 +484,26 @@ def calculate_rmsf(
 
 
 def create_r_plot(
-    rmsx_csv,
-    rmsd_csv,
-    rmsf_csv,
-    rscript_executable='Rscript',
-    interpolate=False,
-    triple=False,
-    palette="plasma",
-    min_val=None,
-    max_val=None,
-    log_transform=True,
-    verbose=True
+        rmsx_csv,
+        rmsd_csv,
+        rmsf_csv,
+        rscript_executable='Rscript',
+        interpolate=False,
+        triple=False,
+        palette="plasma",
+        min_val=None,
+        max_val=None,
+        log_transform=True,
+        custom_fill_label="",
+        verbose=True
 ):
     """
     Run the R script to generate RMSX plots and display the first image.
+
+    Parameters:
+    -----------
+    - custom_fill_label : str
+         Optional custom label to override the default fill label in the plot.
     """
     interpolate_str = 'TRUE' if interpolate else 'FALSE'
     triple_str = 'TRUE' if triple else 'FALSE'
@@ -529,7 +535,8 @@ def create_r_plot(
             palette,
             str(min_val) if min_val is not None else "",
             str(max_val) if max_val is not None else "",
-            log_transform_str
+            log_transform_str,
+            custom_fill_label  # New parameter added to the command
         ]
 
         if verbose:
@@ -549,7 +556,8 @@ def create_r_plot(
 
     except FileNotFoundError:
         if verbose:
-            print(f"Error: Rscript executable not found: {rscript_executable}. Please ensure R is installed and 'Rscript' is in your PATH.")
+            print(
+                f"Error: Rscript executable not found: {rscript_executable}. Please ensure R is installed and 'Rscript' is in your PATH.")
         return
     except Exception as e:
         if verbose:
@@ -716,57 +724,36 @@ def compute_global_rmsx_min_max(csv_paths):
 
 
 def run_rmsx(
-    topology_file,
-    trajectory_file,
-    output_dir=None,
-    num_slices=None,
-    slice_size=None,
-    rscript_executable='Rscript',
-    verbose=True,
-    interpolate=True,
-    triple=False,
-    chain_sele=None,
-    overwrite=False,
-    palette="viridis",
-    start_frame=0,
-    end_frame=None,
-    make_plot=True,
-    analysis_type="protein",
-    summary_n=3,
-    manual_length_ns=None,
-    log_transform=True
+        topology_file,
+        trajectory_file,
+        output_dir=None,
+        num_slices=None,
+        slice_size=None,
+        rscript_executable='Rscript',
+        verbose=True,
+        interpolate=True,
+        triple=False,
+        chain_sele=None,
+        overwrite=False,
+        palette="viridis",
+        start_frame=0,
+        end_frame=None,
+        make_plot=True,
+        analysis_type="protein",
+        summary_n=3,
+        manual_length_ns=None,
+        log_transform=True,
+        custom_fill_label=""
 ):
     """
     Run the RMSX analysis on a specified trajectory range.
 
-    Parameters
-    ----------
-    - topology_file : str
-    - trajectory_file : str
-    - output_dir : str or None
-    - num_slices : int or None
-    - slice_size : int or None
-    - rscript_executable : str
-    - verbose : bool
-    - interpolate : bool
-    - triple : bool
-    - chain_sele : str or None
-    - overwrite : bool
-    - palette : str
-    - start_frame : int
-    - end_frame : int or None
-    - make_plot : bool
-    - analysis_type : str ("protein" or "dna")
-    - summary_n : int or None
-        If provided, we automatically compute and return top/bottom RMSX data.
-    - manual_length_ns : float or None
-        If provided, overrides the auto-calculated simulation length for naming output files.
-    - log_transform : bool
-        If True, the RMSX data will be log-scaled and the CSV columns renamed accordingly.
-    Returns
-    -------
-    summary_tuple : (pd.DataFrame, pd.DataFrame) or None
-        If summary_n is not None, returns (top_n_df, bottom_n_df). Otherwise None.
+    Parameters:
+    -----------
+    - custom_fill_label : str
+         Optional custom label to override the default fill label in the plot.
+
+    (Other parameters remain as documented previously.)
     """
     initialize_environment(verbose=verbose)
 
@@ -787,7 +774,8 @@ def run_rmsx(
             for chain, length in chain_info.items():
                 print(f"Chain {chain}: {length} residues")
         chain_list = ", ".join([f"{chain} ({length} residues)" for chain, length in chain_info.items()])
-        selected_chain = input(f"Please enter the chain ID you would like to analyze from the following options:\n{chain_list}\nChain ID: ").strip()
+        selected_chain = input(
+            f"Please enter the chain ID you would like to analyze from the following options:\n{chain_list}\nChain ID: ").strip()
         if selected_chain not in chain_ids:
             if verbose:
                 print(f"Chain '{selected_chain}' is not available in the topology file.")
@@ -845,15 +833,14 @@ def run_rmsx(
             print("Error: You must specify either num_slices or slice_size.")
         raise RuntimeError("No slicing method specified.")
 
-    # If log_transform is True, transform all numeric columns (except ResidueID and ChainID)
-    # and rename slice columns by appending "_log" before the .dcd extension.
     if log_transform:
         slice_cols = [col for col in all_data.columns if col not in ['ResidueID', 'ChainID']]
         all_data[slice_cols] = all_data[slice_cols].apply(np.log1p)
         new_names = {col: col.replace(".dcd", "_log.dcd") for col in slice_cols}
         all_data.rename(columns=new_names, inplace=True)
 
-    rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u, frames_used=adjusted_total_size, manual_length_ns=manual_length_ns)
+    rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u, frames_used=adjusted_total_size,
+                          manual_length_ns=manual_length_ns)
     all_data.to_csv(rmsx_csv, index=False)
     if verbose:
         print(f"RMSX data saved to {rmsx_csv}")
@@ -875,9 +862,14 @@ def run_rmsx(
         if verbose:
             print("Generating plots...")
         create_r_plot(
-            rmsx_csv, rmsd_csv, rmsf_csv, rscript_executable=rscript_executable,
-            interpolate=interpolate, triple=triple, palette=palette,
-            verbose=verbose, log_transform=log_transform
+            rmsx_csv, rmsd_csv, rmsf_csv,
+            rscript_executable=rscript_executable,
+            interpolate=interpolate,
+            triple=triple,
+            palette=palette,
+            verbose=verbose,
+            log_transform=log_transform,
+            custom_fill_label=custom_fill_label  # Passing the custom label
         )
     else:
         if verbose:
@@ -896,14 +888,15 @@ def run_rmsx(
 def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=None, slice_size=None,
                    rscript_executable='Rscript', verbose=True, interpolate=True, triple=False, overwrite=False,
                    palette='viridis', start_frame=0, end_frame=None, sync_color_scale=False, analysis_type="protein",
-                   manual_length_ns=None, summary_n=3, log_transform=True):
+                   manual_length_ns=None, summary_n=3, log_transform=True, custom_fill_label=""):
     """
     Perform RMSX analysis for all chains in the topology file.
 
-    If sync_color_scale=True, we skip immediate plotting in run_rmsx and do a global min/max pass after analyzing all chains.
-    Also, the main output directory is cleared once before processing any chains.
+    Additional Parameters:
+    -----------
+    - custom_fill_label : str
+         Optional custom label to override the default fill label in the plots.
     """
-    # Set up the main output directory (clear it if it exists)
     if output_dir is None:
         base_name = os.path.splitext(os.path.basename(topology_file))[0]
         output_dir = os.path.join(os.getcwd(), f"{base_name}_rmsx")
@@ -954,7 +947,6 @@ def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=N
         if verbose:
             print(f"\nAnalyzing Chain {chain}...")
 
-        # Process each chain without prompting for overwrite since main output was cleared.
         chain_make_plot = not sync_color_scale
         _summary_tuple = run_rmsx(
             topology_file=topology_file,
@@ -967,7 +959,7 @@ def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=N
             interpolate=interpolate,
             triple=triple,
             chain_sele=chain,
-            overwrite=False,  # Already cleared main output
+            overwrite=False,
             palette=palette,
             start_frame=start_frame,
             end_frame=end_frame,
@@ -975,7 +967,8 @@ def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=N
             analysis_type=analysis_type,
             summary_n=summary_n,
             manual_length_ns=manual_length_ns,
-            log_transform=log_transform
+            log_transform=log_transform,
+            custom_fill_label=custom_fill_label  # Passing the custom label
         )
 
         chain_output_dir = os.path.join(output_dir, f"chain_{chain}_rmsx")
@@ -1021,10 +1014,13 @@ def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=N
                 min_val=global_min,
                 max_val=global_max,
                 verbose=verbose,
-                log_transform=log_transform
+                log_transform=log_transform,
+                custom_fill_label=custom_fill_label  # Passing the custom label
             )
 
     return combined_dir
+
+
 
 
 # def all_chain_rmsx(
@@ -1113,49 +1109,71 @@ def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=N
 #
 #     return combined_dir
 
-
 def run_rmsx_flipbook(
-    topology_file,
-    trajectory_file,
-    output_dir=None,
-    num_slices=9,
-    slice_size=None,
-    rscript_executable='Rscript',
-    verbose=True,
-    interpolate=True,
-    triple=False,
-    overwrite=False,
-    palette='viridis',
-    spacingFactor="1",
-    start_frame=0,
-    end_frame=None,
-    analysis_type="protein and name CA",
-    manual_length_ns=None,
-    summary_n=3,
-    flipbook_min_bfactor=None,
-    flipbook_max_bfactor=None,
-    log_transform=True
+        topology_file,
+        trajectory_file,
+        output_dir=None,
+        num_slices=9,
+        slice_size=None,
+        rscript_executable='Rscript',
+        verbose=True,
+        interpolate=True,
+        triple=False,
+        overwrite=False,
+        palette='viridis',
+        spacingFactor="1",
+        start_frame=0,
+        end_frame=None,
+        analysis_type="protein",
+        manual_length_ns=None,
+        summary_n=3,
+        log_transform=True,
+        custom_fill_label=""
 ):
     """
     Run RMSX analysis and generate a FlipBook visualization, syncing the color scale
     across all chains by default.
+
+    Additional Parameters:
+    ----------------------
+    - custom_fill_label : str
+         Optional custom label to override the default fill label in the plots.
+
+    This function calls the all_chain_rmsx wrapper (which now accepts custom_fill_label)
+    and then passes the combined directory to run_flipbook for visualization.
     """
     combined_dir = all_chain_rmsx(
-        topology_file=topology_file, trajectory_file=trajectory_file, output_dir=output_dir,
-        num_slices=num_slices, slice_size=slice_size, rscript_executable=rscript_executable, verbose=verbose,
-        interpolate=interpolate, triple=triple, overwrite=overwrite, palette=palette, start_frame=start_frame,
-        end_frame=end_frame, sync_color_scale=True, analysis_type=analysis_type, manual_length_ns=manual_length_ns,
-        summary_n=summary_n, log_transform=log_transform
+        topology_file=topology_file,
+        trajectory_file=trajectory_file,
+        output_dir=output_dir,
+        num_slices=num_slices,
+        slice_size=slice_size,
+        rscript_executable=rscript_executable,
+        verbose=verbose,
+        interpolate=interpolate,
+        triple=triple,
+        overwrite=overwrite,
+        palette=palette,
+        start_frame=start_frame,
+        end_frame=end_frame,
+        sync_color_scale=True,
+        analysis_type=analysis_type,
+        manual_length_ns=manual_length_ns,
+        summary_n=summary_n,
+        log_transform=log_transform,
+        custom_fill_label=custom_fill_label  # Propagate the custom label
     )
 
     run_flipbook(
-        directory=combined_dir, palette=palette,
-        min_bfactor=flipbook_min_bfactor, max_bfactor=flipbook_max_bfactor,
+        directory=combined_dir,
+        palette=palette,
+        min_bfactor=None,  # You may add flipbook-specific parameters here if needed
+        max_bfactor=None,
         spacingFactor=spacingFactor
     )
 
     if verbose:
-        print("Full analysis including FlipBook visualization completed successfully.")
+        print("Full RMSX flipbook analysis completed successfully.")
 
 
 # ---------------------------------------------------------------------
@@ -1237,3 +1255,434 @@ def run_rmsx_flipbook(
 #   - Consider applying log to RMSX columns for log-scale color mapping.
 #   - Option for flipbook to handle single chain more seamlessly.
 # ---------------------------------------------------------------------
+
+
+
+# trying to make this work with shift maps too:
+
+
+def process_trajectory_shifts_by_size(u, output_dir, total_size, slice_size, chain_sele=None, start_frame=0,
+                                      analysis_type="protein", verbose=True):
+    """
+    Slice the trajectory into slices of a fixed size and compute, for each slice,
+    the Euclidean distance ("shift") for each residue between the first frame of the slice
+    and the reference frame (the first frame of the simulation).
+
+    Returns a DataFrame with the same format as produced by process_trajectory_slices_by_size,
+    but with computed shift values instead of RMSF values.
+    """
+    # Set the reference positions (from the first frame of the simulation)
+    u.trajectory[start_frame]
+    selection_str = get_selection_string(analysis_type=analysis_type, chain_sele=chain_sele)
+    atoms_ref = u.select_atoms(selection_str)
+    ref_coords = atoms_ref.positions.copy()  # shape: (n_residues, 3)
+
+    adjusted_total_size = (total_size // slice_size) * slice_size
+    n_slices = adjusted_total_size // slice_size
+    if verbose:
+        print(
+            f"Computing shifts: {n_slices} slices from frames {start_frame} to {start_frame + adjusted_total_size - 1}.")
+
+    all_data = pd.DataFrame()
+
+    for i in range(n_slices):
+        slice_index = start_frame + i * slice_size  # first frame of this slice
+        u.trajectory[slice_index]
+        atoms_current = u.select_atoms(selection_str)
+        curr_coords = atoms_current.positions  # shape: (n_residues, 3)
+        # Compute Euclidean distance for each residue from its reference position
+        distances = np.linalg.norm(curr_coords - ref_coords, axis=1)
+
+        col_name = f"slice_{i + 1}.dcd"
+        df_slice = pd.DataFrame({col_name: distances}, index=[res.resid for res in atoms_current.residues])
+        if all_data.empty:
+            all_data = df_slice
+        else:
+            all_data = pd.concat([all_data, df_slice], axis=1)
+
+        # Write out the PDB file using the current atom selection (atoms_current)
+        coord_path = os.path.join(output_dir, f"slice_{i + 1}_first_frame.pdb")
+        with mda.Writer(coord_path, atoms_current.n_atoms, multiframe=False) as coord_writer:
+            coord_writer.write(atoms_current)
+
+        if verbose:
+            print(f"Slice {i + 1}: computed shifts for frame {slice_index}")
+
+    # Add identifier columns using the reference selection
+    all_data.insert(0, 'ChainID', [res.atoms[0].segid for res in atoms_ref.residues])
+    all_data.insert(0, 'ResidueID', [res.resid for res in atoms_ref.residues])
+
+    return all_data, adjusted_total_size
+
+
+def run_shift_map(
+        topology_file,
+        trajectory_file,
+        output_dir=None,
+        num_slices=None,
+        slice_size=None,
+        rscript_executable='Rscript',
+        verbose=True,
+        interpolate=True,
+        triple=False,
+        chain_sele=None,
+        overwrite=False,
+        palette="viridis",
+        start_frame=0,
+        end_frame=None,
+        make_plot=True,
+        analysis_type="protein",
+        summary_n=3,
+        manual_length_ns=None,
+        log_transform=True,
+        custom_fill_label=""
+):
+    """
+    Run the trajectory shift analysis on a specified trajectory range.
+
+    This function works similarly to run_rmsx() but computes the Euclidean distance ("shift")
+    for each residue in the first frame of each slice relative to the reference frame
+    (the first frame of the simulation).
+
+    Additional Parameters:
+    -----------
+    - custom_fill_label : str
+         Optional custom label to override the default fill label in the plot.
+    - chain_sele : str or None
+         If not provided, the function will prompt the user to select one from the available chains.
+    """
+    initialize_environment(verbose=verbose)
+
+    # If output directory is not provided, create one based on the topology file name.
+    if output_dir is None:
+        base_name = os.path.splitext(os.path.basename(topology_file))[0]
+        output_dir = os.path.join(os.getcwd(), f"{base_name}_shiftmap")
+
+    # Create a Universe to check for available chains.
+    u_top = mda.Universe(topology_file)
+    chain_ids = np.unique(u_top.atoms.segids)
+    if chain_sele is None:
+        # Prompt user to select a chain if not provided.
+        chain_info = {}
+        for chain in chain_ids:
+            chain_atoms = u_top.select_atoms(f'segid {chain}')
+            chain_info[chain] = len(chain_atoms.residues)
+        if verbose:
+            print("Available chains and their lengths (in residues):")
+            for chain, length in chain_info.items():
+                print(f"Chain {chain}: {length} residues")
+        chain_list = ", ".join([f"{chain} ({length} residues)" for chain, length in chain_info.items()])
+        selected_chain = input(f"Please enter the chain ID you would like to analyze from the following options:\n{chain_list}\nChain ID: ").strip()
+        if selected_chain not in chain_ids:
+            if verbose:
+                print(f"Chain '{selected_chain}' is not available in the topology file.")
+            raise RuntimeError("Selected chain is not available in the topology.")
+        chain_sele = selected_chain
+    else:
+        if chain_sele not in chain_ids:
+            if verbose:
+                print(f"Chain '{chain_sele}' is not available in the topology file.")
+            raise RuntimeError("Selected chain is not available in the topology.")
+
+    # Create the chain-specific output directory.
+    chain_output_dir = os.path.join(output_dir, f"chain_{chain_sele}_shiftmap")
+    setup_directory(chain_output_dir, overwrite=overwrite, verbose=verbose)
+
+    u = mda.Universe(topology_file, trajectory_file)
+    if end_frame is None:
+        end_frame = len(u.trajectory) - 1
+    if end_frame < start_frame:
+        raise ValueError("end_frame must be >= start_frame.")
+    if end_frame >= len(u.trajectory):
+        end_frame = len(u.trajectory) - 1
+    used_frames_count = end_frame - start_frame + 1
+    if used_frames_count < 1:
+        raise ValueError("No frames available in the specified range.")
+
+    if verbose:
+        print("Starting shift map analysis...")
+
+    if slice_size is None:
+        if num_slices is not None:
+            slice_size = used_frames_count // num_slices
+            if verbose:
+                print(f"Calculated slice_size = {slice_size} (from num_slices = {num_slices})")
+        else:
+            raise RuntimeError("Either slice_size or num_slices must be specified.")
+
+    all_data, adjusted_total_size = process_trajectory_shifts_by_size(
+        u, chain_output_dir, used_frames_count, slice_size,
+        chain_sele=chain_sele, start_frame=start_frame,
+        analysis_type=analysis_type, verbose=verbose
+    )
+
+    if log_transform:
+        slice_cols = [col for col in all_data.columns if col not in ['ResidueID', 'ChainID']]
+        all_data[slice_cols] = all_data[slice_cols].apply(np.log1p)
+        new_names = {col: col.replace(".dcd", "_log.dcd") for col in slice_cols}
+        all_data.rename(columns=new_names, inplace=True)
+
+    shift_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u, frames_used=adjusted_total_size,
+                           manual_length_ns=manual_length_ns)
+    all_data.to_csv(shift_csv, index=False)
+    if verbose:
+        print(f"Shift map data saved to {shift_csv}")
+
+    rmsd_csv = calculate_rmsd(
+        u, chain_output_dir, chain_sele=chain_sele,
+        start_frame=start_frame, end_frame=(start_frame + adjusted_total_size - 1),
+        analysis_type=analysis_type, verbose=verbose
+    )
+    rmsf_csv = calculate_rmsf(
+        u, chain_output_dir, chain_sele=chain_sele,
+        start_frame=start_frame, end_frame=(start_frame + adjusted_total_size - 1),
+        analysis_type=analysis_type, verbose=verbose
+    )
+
+    update_all_pdb_bfactors(shift_csv, silent=(not verbose), verbose=verbose)
+
+    if make_plot:
+        if verbose:
+            print("Generating plots for shift map...")
+        create_r_plot(
+            shift_csv, rmsd_csv, rmsf_csv,
+            rscript_executable=rscript_executable,
+            interpolate=interpolate,
+            triple=triple,
+            palette=palette,
+            verbose=verbose,
+            log_transform=log_transform,
+            custom_fill_label=custom_fill_label  # Passing the custom label
+        )
+    else:
+        if verbose:
+            print("Skipping plot generation in run_shift_map() because make_plot=False.")
+
+    summary_tuple = None
+    if summary_n is not None and isinstance(summary_n, int):
+        if verbose:
+            print(f"\nNow summarizing the top {summary_n} and bottom {summary_n} shift values...")
+        top_n_df, bottom_n_df = summarize_rmsx(shift_csv, n=summary_n, print_output=verbose)
+        summary_tuple = (top_n_df, bottom_n_df)
+
+    return summary_tuple
+
+
+
+def all_chain_shift_map(
+        topology_file,
+        trajectory_file,
+        output_dir=None,
+        num_slices=None,
+        slice_size=None,
+        rscript_executable='Rscript',
+        verbose=True,
+        interpolate=True,
+        triple=False,
+        overwrite=False,
+        palette='viridis',
+        start_frame=0,
+        end_frame=None,
+        sync_color_scale=False,
+        analysis_type="protein",
+        manual_length_ns=None,
+        summary_n=3,
+        log_transform=True,
+        custom_fill_label="Distance\n(Å)" ###
+):
+    """
+    Perform shift map analysis for all chains in the topology file.
+
+    Additional Parameters:
+    -----------
+    - custom_fill_label : str
+         Optional custom label to override the default fill label in the plots.
+    """
+    if output_dir is None:
+        base_name = os.path.splitext(os.path.basename(topology_file))[0]
+        output_dir = os.path.join(os.getcwd(), f"{base_name}_shiftmap")
+
+    if os.path.exists(output_dir):
+        if overwrite:
+            if verbose:
+                print(f"Clearing main output directory: {output_dir}")
+            for file in os.listdir(output_dir):
+                file_path = os.path.join(output_dir, file)
+                try:
+                    if os.path.isfile(file_path) or os.path.islink(file_path):
+                        os.unlink(file_path)
+                    elif os.path.isdir(file_path):
+                        shutil.rmtree(file_path)
+                except Exception as e:
+                    if verbose:
+                        print(f"Failed to delete {file_path}. Reason: {e}")
+        else:
+            response = input(f"The main directory '{output_dir}' already exists. Overwrite? (y/n): ")
+            if response.strip().lower() != 'y':
+                raise RuntimeError("User chose not to overwrite the main output directory.")
+            else:
+                if verbose:
+                    print(f"Clearing main output directory: {output_dir}")
+                for file in os.listdir(output_dir):
+                    file_path = os.path.join(output_dir, file)
+                    try:
+                        if os.path.isfile(file_path) or os.path.islink(file_path):
+                            os.unlink(file_path)
+                        elif os.path.isdir(file_path):
+                            shutil.rmtree(file_path)
+                    except Exception as e:
+                        if verbose:
+                            print(f"Failed to delete {file_path}. Reason: {e}")
+    else:
+        os.makedirs(output_dir)
+        if verbose:
+            print(f"Created main output directory: {output_dir}")
+
+    u_top = mda.Universe(topology_file)
+    chain_ids = np.unique(u_top.atoms.segids)
+
+    combined_output_dirs = []
+    csv_paths = []
+
+    for chain in chain_ids:
+        if verbose:
+            print(f"\nAnalyzing Chain {chain}...")
+
+        _summary_tuple = run_shift_map(
+            topology_file=topology_file,
+            trajectory_file=trajectory_file,
+            output_dir=output_dir,
+            num_slices=num_slices,
+            slice_size=slice_size,
+            rscript_executable=rscript_executable,
+            verbose=verbose,
+            interpolate=interpolate,
+            triple=triple,
+            chain_sele=chain,
+            overwrite=False,
+            palette=palette,
+            start_frame=start_frame,
+            end_frame=end_frame,
+            make_plot=True,
+            analysis_type=analysis_type,
+            summary_n=summary_n,
+            manual_length_ns=manual_length_ns,
+            log_transform=log_transform,
+            custom_fill_label=custom_fill_label  # Passing the custom label
+        )
+
+        chain_output_dir = os.path.join(output_dir, f"chain_{chain}_shiftmap")
+        combined_output_dirs.append(chain_output_dir)
+
+        possible_csv = list(Path(chain_output_dir).glob("rmsx_*.csv"))
+        if possible_csv:
+            csv_paths.append(str(possible_csv[0]))
+
+    if len(chain_ids) > 1:
+        combined_dir = os.path.join(output_dir, "combined")
+        if verbose:
+            print("\nCombining PDB files from all chains...")
+        combine_pdb_files(combined_output_dirs, combined_dir, verbose=verbose)
+        if verbose:
+            print("Combined shift map analysis completed for all chains.")
+    else:
+        single_chain_id = chain_ids[0]
+        combined_dir = os.path.join(output_dir, f"chain_{single_chain_id}_shiftmap")
+        if verbose:
+            print(f"Single-chain analysis completed. Using directory: {combined_dir}")
+
+    if sync_color_scale and csv_paths:
+        if verbose:
+            print("\nComputing global shift map min and max across all chains...")
+        global_min, global_max = compute_global_rmsx_min_max(csv_paths)
+        if verbose:
+            print(f"Global shift map range = [{global_min:.3f}, {global_max:.3f}]")
+            print("Generating final plots with a fixed color scale...")
+
+        for csv_path in csv_paths:
+            csv_dir = Path(csv_path).parent
+            rmsd_csv = csv_dir / "rmsd.csv"
+            rmsf_csv = csv_dir / "rmsf.csv"
+            create_r_plot(
+                rmsx_csv=str(csv_path),
+                rmsd_csv=str(rmsd_csv),
+                rmsf_csv=str(rmsf_csv),
+                rscript_executable=rscript_executable,
+                interpolate=interpolate,
+                triple=triple,
+                palette=palette,
+                min_val=global_min,
+                max_val=global_max,
+                verbose=verbose,
+                log_transform=log_transform,
+                custom_fill_label=custom_fill_label  # Passing the custom label
+            )
+
+    return combined_dir
+
+
+
+def run_shift_flipbook(
+        topology_file,
+        trajectory_file,
+        output_dir=None,
+        num_slices=9,
+        slice_size=None,
+        rscript_executable='Rscript',
+        verbose=True,
+        interpolate=True,
+        triple=False,
+        overwrite=False,
+        palette='viridis',
+        spacingFactor="1",
+        start_frame=0,
+        end_frame=None,
+        analysis_type="protein and name CA",
+        manual_length_ns=None,
+        summary_n=3,
+        flipbook_min_bfactor=None,
+        flipbook_max_bfactor=None,
+        log_transform=True,
+        custom_fill_label="Distance\n(Å)"
+):
+    """
+    Run shift map analysis and generate a FlipBook visualization, syncing the color scale
+    across all chains by default.
+
+    Additional Parameters:
+    -----------
+    - custom_fill_label : str
+         Optional custom label to override the default fill label in the plots.
+    """
+    combined_dir = all_chain_shift_map(
+        topology_file=topology_file,
+        trajectory_file=trajectory_file,
+        output_dir=output_dir,
+        num_slices=num_slices,
+        slice_size=slice_size,
+        rscript_executable=rscript_executable,
+        verbose=verbose,
+        interpolate=interpolate,
+        triple=triple,
+        overwrite=overwrite,
+        palette=palette,
+        start_frame=start_frame,
+        end_frame=end_frame,
+        sync_color_scale=True,
+        analysis_type=analysis_type,
+        manual_length_ns=manual_length_ns,
+        summary_n=summary_n,
+        log_transform=log_transform,
+        custom_fill_label=custom_fill_label  # Passing the custom label
+    )
+
+    run_flipbook(
+        directory=combined_dir,
+        palette=palette,
+        min_bfactor=flipbook_min_bfactor,
+        max_bfactor=flipbook_max_bfactor,
+        spacingFactor=spacingFactor
+    )
+
+    if verbose:
+        print("Full analysis including FlipBook visualization completed successfully.")

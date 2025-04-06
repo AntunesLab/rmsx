@@ -48,9 +48,11 @@ sapply(packages, install_if_not_present)
 #'   - manual_min: Optional numeric lower limit for the color scale.
 #'   - manual_max: Optional numeric upper limit for the color scale.
 #'   - log_transform: Optional logical flag to apply log transformation to numeric data.
+#'   - custom_fill_label: Optional string to override the default fill label.
 #'
 #' @details This function reads arguments passed to the script. If no arguments are found,
-#' it stops. If additional arguments (7, 8, 9) are present, they are parsed as numbers or logical.
+#' it stops. If additional arguments (7, 8, 9, 10) are present, they are parsed as numbers,
+#' logical, or string as appropriate.
 parse_args <- function() {
   args <- commandArgs(trailingOnly = TRUE)
 
@@ -75,6 +77,15 @@ parse_args <- function() {
     manual_max <- as.numeric(args[8])
   }
 
+  # Parse log_transform flag (argument 9)
+  log_transform <- ifelse("TRUE" == args[9], TRUE, FALSE)
+
+  # Parse custom fill label (argument 10)
+  custom_fill_label <- ""
+  if (length(args) >= 10 && args[10] != "") {
+    custom_fill_label <- args[10]
+  }
+
   list(
     csv_path = args[1],
     rmsd = args[2],
@@ -84,7 +95,8 @@ parse_args <- function() {
     palette = args[6],
     manual_min = manual_min,
     manual_max = manual_max,
-    log_transform = ifelse("TRUE" == args[9], TRUE, FALSE)
+    log_transform = log_transform,
+    custom_fill_label = custom_fill_label
   )
 }
 
@@ -113,12 +125,13 @@ read_and_summarize_csv <- function(csv_path) {
 #' @param manual_min Optional numeric lower limit for color scale, NA if not used.
 #' @param manual_max Optional numeric upper limit for color scale, NA if not used.
 #' @param log_transform Logical flag to indicate if data has been log-transformed.
+#' @param custom_fill_label Optional string to override the default fill label.
 #' @return A ggplot object representing the RMSX plot for the given chain.
 #'
 #' @details
 #' This function extracts data for one specific Chain ID. It determines the simulation length
 #' from the filename and calculates the spacing (step_size) between time points.
-process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palette, manual_min, manual_max, log_transform) {
+process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palette, manual_min, manual_max, log_transform, custom_fill_label) {
   rmsx <- rmsx_raw %>%
     filter(ChainID == id) %>%
     select(-ChainID)
@@ -139,7 +152,7 @@ process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palett
   rmsx_long <- pivot_longer(rmsx, cols = -Residue, names_to = "Time_Point", values_to = "RMSF")
   rmsx_long$Time_Point <- as.numeric(rmsx_long$Time_Point)
 
-  plot_rmsx(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max, log_transform)
+  plot_rmsx(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max, log_transform, custom_fill_label)
 }
 
 #' @title plot_rmsx
@@ -153,17 +166,24 @@ process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palett
 #' @param manual_min Optional numeric lower limit for color scale, NA if not used.
 #' @param manual_max Optional numeric upper limit for color scale, NA if not used.
 #' @param log_transform Logical flag to indicate if data has been log-transformed.
+#' @param custom_fill_label Optional string to override the default fill label.
 #'
 #' @return A ggplot object of the RMSX raster plot.
-plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max, log_transform = FALSE) {
+plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max, log_transform = FALSE, custom_fill_label = "") {
   fill_scale <- if (!is.na(manual_min) && !is.na(manual_max)) {
     scale_fill_viridis(option = palette, limits = c(manual_min, manual_max))
   } else {
     scale_fill_viridis(option = palette)
   }
 
-  # Change the legend label if log_transform is TRUE without re-transforming the data
-  fill_label <- if (log_transform) "Log-\nScaled\nRMSX" else "RMSX"
+  # Use the custom fill label if provided; otherwise, use default based on log_transform
+  fill_label <- if (!is.null(custom_fill_label) && custom_fill_label != "") {
+    custom_fill_label
+  } else if (log_transform) {
+    "Log-\nScaled\nRMSX"
+  } else {
+    "RMSX"
+  }
 
   ggplot(rmsx_long, aes(Time_Point, Residue, fill = RMSF)) +
     geom_raster(interpolate = interpolate) +
@@ -261,12 +281,13 @@ main <- function() {
   }
 
   for (id in unique(rmsx_raw$ChainID)) {
-    # Pass manual_min, manual_max, and log_transform to the plot
+    # Pass manual_min, manual_max, log_transform, and custom_fill_label to the plot
     rmsx_plot <- process_data_by_chain_id(
       rmsx_raw, id, args$csv_path,
       args$interpolate, args$palette,
       args$manual_min, args$manual_max,
-      args$log_transform
+      args$log_transform,
+      args$custom_fill_label
     )
 
     save_plot(rmsx_plot, args$csv_path, id)
