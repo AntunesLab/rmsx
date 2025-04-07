@@ -1207,6 +1207,7 @@ def run_shift_flipbook(
         flipbook_min_bfactor=None,
         flipbook_max_bfactor=None,
         log_transform=False,
+        sync_color_scale= False,
         custom_fill_label=shift_fill_text,
         extra_commands=None
 ):
@@ -1237,7 +1238,7 @@ def run_shift_flipbook(
         palette=palette,
         start_frame=start_frame,
         end_frame=end_frame,
-        sync_color_scale=False,  # Disable global syncing to retain only per-chain plots
+        sync_color_scale=sync_color_scale,  # Disable global syncing to retain only per-chain plots
         analysis_type=analysis_type,
         manual_length_ns=manual_length_ns,
         summary_n=summary_n,
@@ -1548,7 +1549,6 @@ def run_shift_map(
         summary_tuple = (top_n_df, bottom_n_df)
 
     return summary_tuple
-
 
 
 def all_chain_shift_map(
