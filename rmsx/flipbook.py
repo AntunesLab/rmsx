@@ -211,46 +211,40 @@ def natural_sort_key(s):
     return [int(text) if text.isdigit() else text.lower() for text in re.split('(\d+)', s)]
 
 
-def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=None, spacingFactor = 1):
+def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=None, spacingFactor=1,
+                 extra_commands=None):
     """
     Executes the flipbook functionality to open PDB files in ChimeraX with specified settings.
+    An optional extra_commands parameter allows you to append custom ChimeraX commands.
 
     Args:
         directory (str): Path to the directory containing PDB files.
         palette (str): Color palette to use for coloring the models.
         min_bfactor (float, optional): Minimum B-factor value. If None, auto-detect.
         max_bfactor (float, optional): Maximum B-factor value. If None, auto-detect.
+        spacingFactor (int, optional): The spacing factor used in tiling.
+        extra_commands (list or str, optional): Additional ChimeraX commands to run after the default commands.
 
     Returns:
         None
     """
     palette_name = palette
-
     provided_min_bfactor = min_bfactor
     provided_max_bfactor = max_bfactor
 
-    # Check if the provided directory exists and is a directory
     if not os.path.isdir(directory):
         print(f"Error: '{directory}' is not a valid directory.")
         sys.exit(1)
 
-    # Find all matching PDB files
     pdb_files = find_pdb_files(directory)
-
     if not pdb_files:
         print(f"No files found matching pattern 'slice_<number>_first_frame.pdb' in directory '{directory}'.")
         sys.exit(1)
 
-    # Sort the files naturally based on the slice number
     pdb_files_sorted = sorted(pdb_files, key=natural_sort_key)
-
-    # Construct full file paths
     pdb_file_paths = [os.path.join(directory, f) for f in pdb_files_sorted]
-
-    # Calculate the number of models
     num_models = len(pdb_file_paths)
 
-    # Determine B-factor range
     if provided_min_bfactor is None or provided_max_bfactor is None:
         min_bfactor, max_bfactor = extract_bfactor_range(pdb_file_paths)
         print(f"Detected B-factor range: {min_bfactor:.2f} - {max_bfactor:.2f}")
@@ -259,62 +253,48 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
         max_bfactor = provided_max_bfactor
         print(f"Using provided B-factor range: {min_bfactor:.2f} - {max_bfactor:.2f}")
 
-    # Retrieve the color stops for the selected palette
     colors = COLOR_PALETTES.get(palette_name)
     if not colors:
         print(f"Error: Palette '{palette_name}' is not defined.")
         sys.exit(1)
 
-    # Create the color mapping command
     try:
         color_command = create_color_mapping(palette_name, colors, min_bfactor, max_bfactor, num_models)
     except ValueError as ve:
         print(ve)
         sys.exit(1)
 
-    # Dynamically set the number of columns to the number of models
     columns = num_models
-
-    # will temp create an axis to align the structure to and it will have an ID
-    # one more than the other models.
-
     axis_id = num_models + 1
 
-    # Prepare ChimeraX commands
-    # Construct the open commands separated by semicolons
     open_commands = " ; ".join([f"open '{path}'" for path in pdb_file_paths])
 
-    # added more to align it better
-    # Define additional ChimeraX commands
-    additional_commands = [
+    default_commands = [
         "view",
         "define axis",
         f"view #{axis_id} zalign #{axis_id}",
         f"turn x 90 center #{axis_id}",
         "color byattribute bfactor",
-        "worm bfactor",  # Uncomment to apply worm effect
-        "lighting soft", # multishadow 128
+        "worm bfactor",
+        "lighting soft",
         "graphics silhouettes true",
-        "set bgColor white",  # Changed from light blue to white
-        color_command,  # Dynamically generated color command
-        f"tile all columns {columns} spacingFactor {spacingFactor}",  #   gives less space than gui?
-        f"close #{axis_id}",  # lets try moving this later to see if it helps with the size alignment
+        "set bgColor white",
+        color_command,
+        f"tile all columns {columns} spacingFactor {spacingFactor}",
+        f"close #{axis_id}",
         f"save {directory}/rmsx_{palette}.png width 2000 height 1000 supersample 3 transparentBackground true"
-
     ]
 
-    # Combine all commands separated by semicolons
-    chimera_commands = f"{open_commands} ; " + " ; ".join(additional_commands)
+    # Append custom extra commands, if provided.
+    if extra_commands:
+        if isinstance(extra_commands, str):
+            extra_commands = [extra_commands]
+        default_commands.extend(extra_commands)
 
-    # Debug: Print the ChimeraX commands
-    # print("ChimeraX Commands:")
-    # print(chimera_commands)
-
-    # Construct the ChimeraX command
+    chimera_commands = f"{open_commands} ; " + " ; ".join(default_commands)
     cmd = ['chimerax', '--cmd', chimera_commands]
 
     try:
-        # Execute the ChimeraX command
         subprocess.run(cmd, check=True)
     except FileNotFoundError:
         print("Error: 'chimerax' command not found. Please ensure ChimeraX is installed and added to your PATH.")
@@ -328,7 +308,6 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
 
 
 def main():
-    # Set up argument parser
     parser = argparse.ArgumentParser(
         description='Open PDB files in ChimeraX in numerical order and apply dynamic coloring and tiling.')
     parser.add_argument('directory', type=str, help='Path to the directory containing PDB files.')
@@ -336,16 +315,18 @@ def main():
                         help='Color palette to use for coloring the models.')
     parser.add_argument('--min_bfactor', type=float, default=None, help='Minimum B-factor value.')
     parser.add_argument('--max_bfactor', type=float, default=None, help='Maximum B-factor value.')
+    # Allow extra commands to be specified on the command line; these will be appended.
+    parser.add_argument('--extra-commands', type=str, nargs='+', default=[],
+                        help='Extra ChimeraX commands to run after the default commands.')
     args = parser.parse_args()
 
     run_flipbook(
         directory=args.directory,
         palette=args.palette,
         min_bfactor=args.min_bfactor,
-        max_bfactor=args.max_bfactor
+        max_bfactor=args.max_bfactor,
+        extra_commands=args.extra_commands
     )
-
-
 
 
 if __name__ == '__main__':

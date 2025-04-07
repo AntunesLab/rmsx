@@ -38,6 +38,9 @@ import warnings  # Import warnings first to suppress specific warnings before ot
 #    using these log-scaled values (with the slice column names appended with "_log").
 # ---------------------------------------------------------------------
 
+
+shift_fill_text="Shift\nin Å"
+
 warnings.filterwarnings(
     "ignore",  # Completely ignore the warning
     message="Found no information for attr: 'formalcharges' Using default value of '0'",
@@ -742,7 +745,7 @@ def run_rmsx(
         analysis_type="protein",
         summary_n=3,
         manual_length_ns=None,
-        log_transform=True,
+        log_transform=False,
         custom_fill_label=""
 ):
     """
@@ -888,7 +891,7 @@ def run_rmsx(
 def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=None, slice_size=None,
                    rscript_executable='Rscript', verbose=True, interpolate=True, triple=False, overwrite=False,
                    palette='viridis', start_frame=0, end_frame=None, sync_color_scale=False, analysis_type="protein",
-                   manual_length_ns=None, summary_n=3, log_transform=True, custom_fill_label=""):
+                   manual_length_ns=None, summary_n=3, log_transform=False, custom_fill_label=""):
     """
     Perform RMSX analysis for all chains in the topology file.
 
@@ -1127,7 +1130,7 @@ def run_rmsx_flipbook(
         analysis_type="protein",
         manual_length_ns=None,
         summary_n=3,
-        log_transform=True,
+        log_transform=False,
         custom_fill_label=""
 ):
     """
@@ -1334,8 +1337,8 @@ def run_shift_map(
         analysis_type="protein",
         summary_n=3,
         manual_length_ns=None,
-        log_transform=True,
-        custom_fill_label=""
+        log_transform=False,
+        custom_fill_label=shift_fill_text
 ):
     """
     Run the trajectory shift analysis on a specified trajectory range.
@@ -1487,8 +1490,8 @@ def all_chain_shift_map(
         analysis_type="protein",
         manual_length_ns=None,
         summary_n=3,
-        log_transform=True,
-        custom_fill_label="Distance\n(Å)" ###
+        log_transform=False,
+        custom_fill_label=shift_fill_text ###
 ):
     """
     Perform shift map analysis for all chains in the topology file.
@@ -1642,8 +1645,8 @@ def run_shift_flipbook(
         summary_n=3,
         flipbook_min_bfactor=None,
         flipbook_max_bfactor=None,
-        log_transform=True,
-        custom_fill_label="Distance\n(Å)"
+        log_transform=False,
+        custom_fill_label=shift_fill_text
 ):
     """
     Run shift map analysis and generate a FlipBook visualization, syncing the color scale
