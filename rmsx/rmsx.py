@@ -1551,6 +1551,7 @@ def run_shift_map(
     return summary_tuple
 
 
+
 def all_chain_shift_map(
         topology_file,
         trajectory_file,
