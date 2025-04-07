@@ -1130,8 +1130,12 @@ def run_rmsx_flipbook(
         analysis_type="protein",
         manual_length_ns=None,
         summary_n=3,
+        sync_color_scale=True,
+        flipbook_min_bfactor=None,
+        flipbook_max_bfactor=None,
         log_transform=False,
-        custom_fill_label=""
+        custom_fill_label="",
+        extra_commands=None
 ):
     """
     Run RMSX analysis and generate a FlipBook visualization, syncing the color scale
@@ -1141,6 +1145,8 @@ def run_rmsx_flipbook(
     ----------------------
     - custom_fill_label : str
          Optional custom label to override the default fill label in the plots.
+    - extra_commands : str or list of str, optional
+         Additional ChimeraX commands to append to the default FlipBook commands.
 
     This function calls the all_chain_rmsx wrapper (which now accepts custom_fill_label)
     and then passes the combined directory to run_flipbook for visualization.
@@ -1159,7 +1165,7 @@ def run_rmsx_flipbook(
         palette=palette,
         start_frame=start_frame,
         end_frame=end_frame,
-        sync_color_scale=True,
+        sync_color_scale=sync_color_scale,
         analysis_type=analysis_type,
         manual_length_ns=manual_length_ns,
         summary_n=summary_n,
@@ -1170,13 +1176,86 @@ def run_rmsx_flipbook(
     run_flipbook(
         directory=combined_dir,
         palette=palette,
-        min_bfactor=None,  # You may add flipbook-specific parameters here if needed
-        max_bfactor=None,
-        spacingFactor=spacingFactor
+        min_bfactor=flipbook_min_bfactor,
+        max_bfactor=flipbook_max_bfactor,
+        spacingFactor=spacingFactor,
+        extra_commands=extra_commands
     )
 
     if verbose:
         print("Full RMSX flipbook analysis completed successfully.")
+
+
+def run_shift_flipbook(
+        topology_file,
+        trajectory_file,
+        output_dir=None,
+        num_slices=9,
+        slice_size=None,
+        rscript_executable='Rscript',
+        verbose=True,
+        interpolate=True,
+        triple=False,
+        overwrite=False,
+        palette='viridis',
+        spacingFactor="1",
+        start_frame=0,
+        end_frame=None,
+        analysis_type="protein and name CA",
+        manual_length_ns=None,
+        summary_n=3,
+        flipbook_min_bfactor=None,
+        flipbook_max_bfactor=None,
+        log_transform=False,
+        custom_fill_label=shift_fill_text,
+        extra_commands=None
+):
+    """
+    Run shift map analysis and generate a FlipBook visualization using per-chain plots only.
+
+    Additional Parameters:
+    -----------
+    - custom_fill_label : str
+         Optional custom label to override the default fill label in the plots.
+    - extra_commands : str or list of str, optional
+         Additional ChimeraX commands to append to the default FlipBook commands.
+
+    This function calls the all_chain_shift_map wrapper (with sync_color_scale disabled)
+    and then passes the combined directory to run_flipbook for visualization.
+    """
+    combined_dir = all_chain_shift_map(
+        topology_file=topology_file,
+        trajectory_file=trajectory_file,
+        output_dir=output_dir,
+        num_slices=num_slices,
+        slice_size=slice_size,
+        rscript_executable=rscript_executable,
+        verbose=verbose,
+        interpolate=interpolate,
+        triple=triple,
+        overwrite=overwrite,
+        palette=palette,
+        start_frame=start_frame,
+        end_frame=end_frame,
+        sync_color_scale=False,  # Disable global syncing to retain only per-chain plots
+        analysis_type=analysis_type,
+        manual_length_ns=manual_length_ns,
+        summary_n=summary_n,
+        log_transform=log_transform,
+        custom_fill_label=custom_fill_label
+    )
+
+    run_flipbook(
+        directory=combined_dir,
+        palette=palette,
+        min_bfactor=flipbook_min_bfactor,
+        max_bfactor=flipbook_max_bfactor,
+        spacingFactor=spacingFactor,
+        extra_commands=extra_commands
+    )
+
+    if verbose:
+        print("Full analysis including per-chain FlipBook visualization completed successfully.")
 
 
 # ---------------------------------------------------------------------
@@ -1624,68 +1703,3 @@ def all_chain_shift_map(
     return combined_dir
 
 
-
-def run_shift_flipbook(
-        topology_file,
-        trajectory_file,
-        output_dir=None,
-        num_slices=9,
-        slice_size=None,
-        rscript_executable='Rscript',
-        verbose=True,
-        interpolate=True,
-        triple=False,
-        overwrite=False,
-        palette='viridis',
-        spacingFactor="1",
-        start_frame=0,
-        end_frame=None,
-        analysis_type="protein and name CA",
-        manual_length_ns=None,
-        summary_n=3,
-        flipbook_min_bfactor=None,
-        flipbook_max_bfactor=None,
-        log_transform=False,
-        custom_fill_label=shift_fill_text
-):
-    """
-    Run shift map analysis and generate a FlipBook visualization, syncing the color scale
-    across all chains by default.
-
-    Additional Parameters:
-    -----------
-    - custom_fill_label : str
-         Optional custom label to override the default fill label in the plots.
-    """
-    combined_dir = all_chain_shift_map(
-        topology_file=topology_file,
-        trajectory_file=trajectory_file,
-        output_dir=output_dir,
-        num_slices=num_slices,
-        slice_size=slice_size,
-        rscript_executable=rscript_executable,
-        verbose=verbose,
-        interpolate=interpolate,
-        triple=triple,
-        overwrite=overwrite,
-        palette=palette,
-        start_frame=start_frame,
-        end_frame=end_frame,
-        sync_color_scale=True,
-        analysis_type=analysis_type,
-        manual_length_ns=manual_length_ns,
-        summary_n=summary_n,
-        log_transform=log_transform,
-        custom_fill_label=custom_fill_label  # Passing the custom label
-    )
-
-    run_flipbook(
-        directory=combined_dir,
-        palette=palette,
-        min_bfactor=flipbook_min_bfactor,
-        max_bfactor=flipbook_max_bfactor,
-        spacingFactor=spacingFactor
-    )
-
-    if verbose:
-        print("Full analysis including FlipBook visualization completed successfully.")
