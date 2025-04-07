@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# not fully tested prototype
+# prototype
 # encapsulting flipbook to allow it to be imported into other programs more easily
 
 

@@ -1,5 +1,17 @@
 import warnings  # Import warnings first to suppress specific warnings before other imports
 
+warnings.simplefilter("ignore", DeprecationWarning)
+
+
+
+# import warnings
+# warnings.filterwarnings(
+#     "ignore",
+#     category=DeprecationWarning,
+#     message=r"DCDReader currently makes independent timesteps by copying self\.ts.*"
+# )
+
+
 # ---------------------------------------------------------------------
 #                  Original notes/documentation
 # ---------------------------------------------------------------------
@@ -51,6 +63,8 @@ warnings.filterwarnings(
 # Seems to be still noisy, adding these to remove unhelpful information that covers actual warnings
 warnings.filterwarnings("ignore", message="Element information is missing, elements attribute will not be populated")
 warnings.filterwarnings("ignore", message="Found missing chainIDs")
+
+
 
 import os
 import re
