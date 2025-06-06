@@ -2,6 +2,9 @@
 RMSX Combines the Features of RMSD and RMSF into a simple-to-understand and simple-to-implement tool for understanding how proteins move. It can work with simulation files from most major MD simulation suites and is much faster than other visualization methods while delivering publication-ready images out of the box. 
 
 
+
+![Color options for RMSX and Flipbook](flipbook_and_rmsx_color_maps.png)
+
 ### 1. Prerequisites
 - [**Python**](https://www.python.org/) 3.7+ (tested with 3.8+).
 - [**R**](https://cran.r-project.org/) installed and in your PATH (the `Rscript` command must be available).
