@@ -182,7 +182,7 @@ plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len, manua
   } else if (log_transform) {
     "Log-\nScaled\nRMSX"
   } else {
-    "RMSX"
+    "RMSX (Å)"
   }
 
   ggplot(rmsx_long, aes(Time_Point, Residue, fill = RMSF)) +
@@ -219,7 +219,11 @@ plot_rmsd <- function(rmsd, Frame, RMSD) {
   ggplot(rmsd, aes(x = Frame, y = RMSD)) +
     geom_line() +
     theme_minimal() +
-    labs(x = "")
+   labs(
+   x = "",
+   y = "RMSD (Å)",
+   title = ""
+   )
 }
 
 #' @title plot_rmsf
@@ -234,8 +238,12 @@ plot_rmsf <- function(rmsf_whole_traj, ResidueID, RMSF) {
     geom_line() +
     theme_minimal() +
     coord_flip() +
-    labs(x = "")
+    labs(
+      x = "",
+      y = "RMSF (Å)",
+    )
 }
+
 
 #' @title plot_triple
 #' @description Arranges RMSD, RMSX, and RMSF plots into a single composite figure.
