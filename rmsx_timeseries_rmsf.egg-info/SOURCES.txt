@@ -4,6 +4,7 @@ setup.py
 rmsx/__init__.py
 rmsx/flipbook.py
 rmsx/rmsx.py
+rmsx/r_scripts/plot_rmsx.R
 rmsx_timeseries_rmsf.egg-info/PKG-INFO
 rmsx_timeseries_rmsf.egg-info/SOURCES.txt
 rmsx_timeseries_rmsf.egg-info/dependency_links.txt
