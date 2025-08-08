@@ -134,8 +134,9 @@ run_rmsx_flipbook(
 
 ---
 
-**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check out the [notebooks directory](./notebooks/) and open an [issue on GitHub](https://github.com/AntunesLab/rmsx/issues) if you need further assistance.
+**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check the [Quick Start Guide](https://raw.githubusercontent.com/AntunesLab/rmsx/main/START_HERE_RMSX_and_Flipbook_Tutorial.ipynb) and open an [issue on GitHub](https://github.com/AntunesLab/rmsx/issues) if you need further assistance.
 
 
 ![Protease RMSX and Flipbook Example](protease_rmsx_flipbook_overview.png)
+
 
