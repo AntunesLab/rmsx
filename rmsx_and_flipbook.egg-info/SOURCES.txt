@@ -1,0 +1,15 @@
+LICENSE
+README.md
+pyproject.toml
+setup.py
+rmsx/__init__.py
+rmsx/core.py
+rmsx/flipbook.py
+rmsx/r_scripts/install_deps.R
+rmsx/r_scripts/plot_rmsx.R
+rmsx_and_flipbook.egg-info/PKG-INFO
+rmsx_and_flipbook.egg-info/SOURCES.txt
+rmsx_and_flipbook.egg-info/dependency_links.txt
+rmsx_and_flipbook.egg-info/requires.txt
+rmsx_and_flipbook.egg-info/top_level.txt
+scripts/rmsx_cli.py

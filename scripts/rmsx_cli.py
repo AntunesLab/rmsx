@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
-from rmsx.rmsx import run_rmsx
+from rmsx import run_rmsx
 
 def main():
     parser = argparse.ArgumentParser(description='RMSX Trajectory Analysis Tool')

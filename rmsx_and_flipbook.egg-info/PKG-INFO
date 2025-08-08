@@ -1,19 +1,35 @@
-Metadata-Version: 2.1
-Name: rmsx-timeseries-rmsf
-Version: 0.1.0
-Summary: A package for RMSX trajectory analysis using MDAnalysis.
-Home-page: https://github.com/finn2400/rmsx
+Metadata-Version: 2.4
+Name: rmsx-and-flipbook
+Version: 0.1.1
+Summary: RMSX trajectory analysis + FlipBook (MDAnalysis + R + ChimeraX)
+Home-page: https://github.com/AntunesLab/rmsx
 Author: Finn Beruldsen
 Author-email: fpberuld@cougarnet.uh.edu
+License: MIT
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.6
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: MDAnalysis>=2.0.0
+Requires-Dist: pandas>=1.1.0
+Requires-Dist: plotly>=4.14.3
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # RMSDxRMSF = RMSX
 RMSX Combines the Features of RMSD and RMSF into a simple-to-understand and simple-to-implement tool for understanding how proteins move. It can work with simulation files from most major MD simulation suites and is much faster than other visualization methods while delivering publication-ready images out of the box. 
+
 
 
 
@@ -26,6 +42,9 @@ RMSX Combines the Features of RMSD and RMSF into a simple-to-understand and simp
 - The RMSX code will attempt to install R packages like `ggplot2`, `viridis`, `dplyr`, etc., if they’re missing.
 
 ### 2. Installation
+
+Once you have those installed, just download and run the [Quick Start Guide Notebook](https://github.com/AntunesLab/rmsx/releases/download/quickstart/START_HERE_RMSX_and_Flipbook_Tutorial.ipynb)
+It will walk you through the process and allows your to try RMSX, Trajectory Maps, and Flipbook on your own trajectories or ones from our publication.
 
 1. **Clone this repository**:
    ```bash
@@ -148,8 +167,14 @@ run_rmsx_flipbook(
 
 ---
 
-**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check out the [notebooks directory](./notebooks/) and open an [issue on GitHub](https://github.com/AntunesLab/rmsx/issues) if you need further assistance.
+**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check the [Quick Start Guide](https://github.com/AntunesLab/rmsx/releases/download/quickstart/START_HERE_RMSX_and_Flipbook_Tutorial.ipynb)
+ and open an [issue on GitHub](https://github.com/AntunesLab/rmsx/issues) if you need further assistance.
+
+
 
 
 ![Protease RMSX and Flipbook Example](protease_rmsx_flipbook_overview.png)
+
+
+
 
