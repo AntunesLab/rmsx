@@ -3,6 +3,7 @@ RMSX Combines the Features of RMSD and RMSF into a simple-to-understand and simp
 
 
 
+
 ![Color options for RMSX and Flipbook](flipbook_and_rmsx_color_maps.png)
 
 ### 1. Prerequisites
@@ -12,6 +13,9 @@ RMSX Combines the Features of RMSD and RMSF into a simple-to-understand and simp
 - The RMSX code will attempt to install R packages like `ggplot2`, `viridis`, `dplyr`, etc., if they’re missing.
 
 ### 2. Installation
+
+Once you have those installed, just download and run the [Quick Start Guide Notebook](https://github.com/AntunesLab/rmsx/releases/download/quickstart/START_HERE_RMSX_and_Flipbook_Tutorial.ipynb)
+It will walk you through the process and allows your to try RMSX, Trajectory Maps, and Flipbook on your own trajectories or ones from our publication.
 
 1. **Clone this repository**:
    ```bash
@@ -134,13 +138,14 @@ run_rmsx_flipbook(
 
 ---
 
-**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check the [Quick Start Guide](https://raw.githubusercontent.com/AntunesLab/rmsx/main/START_HERE_RMSX_and_Flipbook_Tutorial.ipynb) and open an [issue on GitHub](https://github.com/AntunesLab/rmsx/issues) if you need further assistance.
+**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check the [Quick Start Guide](https://github.com/AntunesLab/rmsx/releases/download/quickstart/START_HERE_RMSX_and_Flipbook_Tutorial.ipynb)
+ and open an [issue on GitHub](https://github.com/AntunesLab/rmsx/issues) if you need further assistance.
 
-[Quick Start Guide](https://github.com/AntunesLab/rmsx/releases/download/quickstart/START_HERE_RMSX_and_Flipbook_Tutorial.ipynb)
 
 
 
 ![Protease RMSX and Flipbook Example](protease_rmsx_flipbook_overview.png)
+
 
 
 
