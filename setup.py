@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name='rmsx-timeseries-rmsf',  # Changed to lowercase and hyphens for compatibility
+    name='rmsx-and-flipbook',  # Changed to lowercase and hyphens for compatibility
     version='0.1.0',
     author='Finn Beruldsen',
     author_email='fpberuld@cougarnet.uh.edu',
