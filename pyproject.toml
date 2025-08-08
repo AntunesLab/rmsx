@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rmsx"
+version = "0.1.0"
+description = "RMSX trajectory analysis + FlipBook (MDAnalysis + R plotting + ChimeraX)"
+readme = "README.md"
+requires-python = ">=3.8"
+authors = [{name="Finn Beruldsen", email="fpberuld@cougarnet.uh.edu"}]
+dependencies = [
+  "MDAnalysis>=2.0.0",
+  "pandas>=1.1.0",
+  "plotly>=4.14.3",
+]
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+# Install the legacy-style script file
+scripts = ["scripts/rmsx_cli.py"]
+
+[tool.setuptools.package-data]
+# Include the R plotting scripts (and any other static assets you need at runtime)
+rmsx = ["r_scripts/*.R"]

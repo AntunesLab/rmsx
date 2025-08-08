@@ -1,0 +1,17 @@
+
+# build junk
+build/
+*.egg-info/
+__pycache__/
+*.pyc
+
+# build artifacts
+/build/
+/dist/
+/*.egg-info/
+/src/*.egg-info/
+/src/*/*.egg-info/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.DS_Store
