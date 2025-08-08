@@ -31,9 +31,9 @@ warnings.simplefilter("ignore", DeprecationWarning)
 # If you want a manual simulation length in ns, specify manual_length_ns=100 (for example).
 # If you don’t want verbose output, set verbose=False.
 
-# ---------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 #                  Notes / Documentation
-# ---------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # This script slices trajectories, computes RMSF/RMSD, updates PDB B-factors,
 # can create RMSX plots via an R script, produce a 3D "FlipBook"-style visualization,
 # and summarize top/bottom RMSX residues.
@@ -48,7 +48,7 @@ warnings.simplefilter("ignore", DeprecationWarning)
 # 5. NEW: log_transform (default True) controls whether RMSX data is log-scaled.
 #    If True, the CSV will contain log-scaled RMSX values and the PDB files will be updated
 #    using these log-scaled values (with the slice column names appended with "_log").
-# ---------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 
 shift_fill_text="Shift\nin Å"
@@ -135,7 +135,6 @@ def summarize_rmsx(rmsx_csv, n=3, print_output=True):
         Number of top/bottom entries to show (default=3).
     print_output : bool, optional
         If True (default), prints the summary to the console.
-
     Returns
     -------
     top_n_df : pd.DataFrame
