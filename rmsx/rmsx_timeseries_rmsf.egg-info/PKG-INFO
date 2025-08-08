@@ -1,4 +1,4 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: rmsx-timeseries-rmsf
 Version: 0.1.0
 Summary: A package for RMSX trajectory analysis using MDAnalysis.
@@ -11,19 +11,6 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: MDAnalysis>=2.0.0
-Requires-Dist: pandas>=1.1.0
-Requires-Dist: plotly>=4.14.3
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # RMSDxRMSF = RMSX
 RMSX Combines the Features of RMSD and RMSF into a simple-to-understand and simple-to-implement tool for understanding how proteins move. It can work with simulation files from most major MD simulation suites and is much faster than other visualization methods while delivering publication-ready images out of the box. 

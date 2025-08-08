@@ -2,23 +2,3 @@
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[project]
-name = "rmsx"
-version = "0.1.0"
-description = "RMSX trajectory analysis + FlipBook (MDAnalysis + R plotting + ChimeraX)"
-readme = "README.md"
-requires-python = ">=3.8"
-authors = [{name="Finn Beruldsen", email="fpberuld@cougarnet.uh.edu"}]
-dependencies = ["MDAnalysis>=2.0.0","pandas>=1.1.0","plotly>=4.14.3"]
-
-[project.scripts]
-rmsx = "rmsx.cli:main"
-
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-
-[tool.setuptools.package-data]
-rmsx = ["r_scripts/*.R"]

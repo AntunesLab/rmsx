@@ -1,71 +1,31 @@
+from pathlib import Path
 from setuptools import setup, find_packages
 
-# Read the long description from README.md
-with open("README.md", "r", encoding="utf-8") as fh:
-    long_description = fh.read()
+README = Path(__file__).with_name("README.md").read_text(encoding="utf-8")
 
 setup(
-    name='rmsx-and-flipbook',  # Changed to lowercase and hyphens for compatibility
-    version='0.1.0',
-    author='Finn Beruldsen',
-    author_email='fpberuld@cougarnet.uh.edu',
-    description='A package for RMSX trajectory analysis using MDAnalysis.',
-    long_description=long_description,
-    long_description_content_type='text/markdown',
-    url='https://github.com/finn2400/rmsx',
-    packages=find_packages(),
-    include_package_data=True,  # Ensures package_data is included
-    package_data={
-        'rmsx': ['r_scripts/*.R'],  # Includes all .R files in r_scripts
-    },
+    name="rmsx-and-flipbook",               # final package name on PyPI/pip
+    version="0.1.1",                        # bump to flush old metadata/caches
+    description="RMSX trajectory analysis + FlipBook (MDAnalysis + R + ChimeraX)",
+    long_description=README,
+    long_description_content_type="text/markdown",
+    author="Finn Beruldsen",
+    author_email="fpberuld@cougarnet.uh.edu",
+    url="https://github.com/AntunesLab/rmsx",
+    license="MIT",
+    packages=find_packages(exclude=("tests*", "docs*", "examples*")),
+    include_package_data=True,
+    package_data={"rmsx": ["r_scripts/*.R"]},  # ship the R helpers
     install_requires=[
-        'MDAnalysis>=2.0.0',
-        'pandas>=1.1.0',
-        'plotly>=4.14.3'  # Moved plotly to install_requires if it's essential
-        # Add other essential dependencies here if any
+        "MDAnalysis>=2.0.0",
+        "pandas>=1.1.0",
+        "plotly>=4.14.3",
     ],
-    scripts=['scripts/rmsx_cli.py'],
+    scripts=["scripts/rmsx_cli.py"],        # simplest working CLI hookup
     classifiers=[
-        'Programming Language :: Python :: 3',
-        'License :: OSI Approved :: MIT License',  # Ensure this matches your LICENSE file
-        'Operating System :: OS Independent',
+        "Programming Language :: Python :: 3",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
     ],
-    python_requires='>=3.6',
+    python_requires=">=3.8",
 )
-
-
-
-# from setuptools import setup, find_packages
-#
-# setup(
-#     name='RF',
-#     version='0.1.0',
-#     author='Finn Beruldsen',
-#     author_email='fpberuld@cougarnet.uh.edu',
-#     description='A package for RMSX trajectory analysis using MDAnalysis.',
-#     long_description=open('README.md').read(),
-#     long_description_content_type='text/markdown',
-#     url='https://github.com/finn2400/rmsx',
-#     packages=find_packages(),
-#     include_package_data=True,
-#     package_data={'rmsx': ['r_scripts/*.R']},
-#     install_requires=[
-#         'MDAnalysis',
-#         'pandas'
-#         # Include other dependencies, i think that should be all of it.,
-#     ],
-#     extras_require={
-#         'viz': [
-#             'plotly>=4.14.3'
-#         ],
-#
-#     },
-#     scripts=['scripts/rmsx_cli.py'],
-#     classifiers=[
-#         'Programming Language :: Python :: 3',
-#         'License :: OSI Approved :: MIT License',  # Choose appropriate license ...
-#         'Operating System :: OS Independent',
-#     ],
-#     python_requires='>=3.6',
-# )
-#
