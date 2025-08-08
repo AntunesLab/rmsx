@@ -1,9 +1,0 @@
-LICENSE
-README.md
-setup.py
-rmsx_and_flipbook.egg-info/PKG-INFO
-rmsx_and_flipbook.egg-info/SOURCES.txt
-rmsx_and_flipbook.egg-info/dependency_links.txt
-rmsx_and_flipbook.egg-info/requires.txt
-rmsx_and_flipbook.egg-info/top_level.txt
-scripts/rmsx_cli.py
