@@ -1,9 +1,0 @@
-select all
-tile all columns 1 spacing_factor .8
-view
-color byattribute bfactor
-worm bfactor
-light soft multishadow 128
-graphics silhouettes true
-set bgColor light blue
-select clear
