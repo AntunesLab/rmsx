@@ -12,3 +12,23 @@ __pycache__/
 build/
 dist/
 *.egg-info/
+# build/artifacts
+dist/
+build/
+*.egg-info/
+
+# python
+__pycache__/
+*.py[cod]
+
+# notebooks
+.ipynb_checkpoints/
+
+# local outputs & smoke/test runs
+test_files/_*
+rmsx/_*
+*_plot.png
+rmsx_plot.png
+
+# macOS
+.DS_Store
