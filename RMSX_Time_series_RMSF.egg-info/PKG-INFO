@@ -1,18 +1,28 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: RMSX-Time-series-RMSF
 Version: 0.1.0
 Summary: A package for RMSX trajectory analysis using MDAnalysis.
 Home-page: https://github.com/finn2400/rmsx
 Author: Finn Beruldsen
 Author-email: fpberuld@cougarnet.uh.edu
-License: UNKNOWN
-Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: MDAnalysis
+Requires-Dist: pandas
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # RMSX Trajectory Analysis Tool Tutorial
 
@@ -133,7 +143,10 @@ The R script used for plotting requires the following R packages:
 - **grid**
 - **gridExtra**
 
-
+### Input Types
+- pdb
+- gro or psf etc
+- dcd, xtc etc
 ---
 
 ## Installation
@@ -345,5 +358,3 @@ This project is licensed under the MIT License.
 ---
 
 Thank you for using the RMSX Trajectory Analysis Tool! We hope this tutorial has helped you set up and run the tool effectively. Happy analyzing!
-
-
