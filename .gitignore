@@ -59,3 +59,7 @@ test_files/_example_run/
 *_shiftmap/
 rmsx_plot.png
 test_files/example_uqb/chain_7_rmsx/
+
+# OS/build noise
+.DS_Store
+*.egg-info/
