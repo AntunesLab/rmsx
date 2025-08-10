@@ -32,3 +32,29 @@ rmsx_plot.png
 
 # macOS
 .DS_Store
+
+# ---- RMSX extras ----
+# build/packaging
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# bytecode & caches
+__pycache__/
+*.py[cod]
+
+# OS/editor
+.DS_Store
+.ipynb_checkpoints/
+
+# generated runs / smoke outputs
+rmsx/_smoke_out/
+rmsx/_example_run/
+test_files/_smoke_out/
+test_files/_example_run/
+
+# common RMSX outputs
+*_rmsx/
+*_shiftmap/
+rmsx_plot.png
