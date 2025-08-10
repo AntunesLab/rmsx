@@ -1,3 +1,4 @@
 
 # macOS
 .DS_Store
+test_files/**/rmsx_*.png
