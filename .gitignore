@@ -1,3 +1,14 @@
-
-# macOS
+# OS/editor
 .DS_Store
+.ipynb_checkpoints/
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Builds
+build/
+dist/
+*.egg-info/
