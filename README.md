@@ -4,9 +4,9 @@ RMSX Combines the Features of RMSD and RMSF into a simple-to-understand and simp
 
 ![Color options for RMSX and Flipbook](flipbook_and_rmsx_color_maps.png)
 
-### 1. Prerequisites
-- [**Python**](https://www.python.org/) 3.7+ (tested with 3.8+).
-- [**Jupyter Notebooks**]](https://phoenixnap.com/kb/install-jupyter-notebook#:~:text=Install%20Jupyter%20Notebook%20on%20Linux,via%20pip) (Recommended) 
+### 1. Prerequisites (click for install instructions) 
+- [**Python**](https://www.python.org/) If not already installed (tested with 3.8+)
+- [**Jupyter Notebooks**](https://phoenixnap.com/kb/install-jupyter-notebook#:~:text=Install%20Jupyter%20Notebook%20on%20Linux,via%20pip) (Recommended) 
 - [**R**](https://cran.r-project.org/) installed and in your PATH (the `Rscript` command must be available).
 - [**ChimeraX**](https://www.cgl.ucsf.edu/chimerax/download.html) if you plan to use the **Flipbook** 3D visualization.
 - The RMSX code will attempt to install R packages like `ggplot2`, `viridis`, `dplyr`, etc., if they’re missing.
@@ -144,6 +144,7 @@ run_rmsx_flipbook(
 
 
 ![Protease RMSX and Flipbook Example](protease_rmsx_flipbook_overview.png)
+
 
 
 
