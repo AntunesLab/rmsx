@@ -1,21 +1,20 @@
 # RMSDxRMSF = RMSX
-RMSX Combines the Features of RMSD and RMSF into a simple-to-understand and simple-to-implement tool for understanding how proteins move. It can work with simulation files from most major MD simulation suites and is much faster than other visualization methods while delivering publication-ready images out of the box. 
-
-
+RMSX Combines the Features of RMSD and RMSF into a simple-to-understand and simple-to-implement tool for understanding how proteins move. It can work with simulation files from across MD simulation suites (e.g., GROMACS and NAMD, Amber etc.) and is much faster than other visualization methods while delivering publication-ready images out of the box. 
 
 
 ![Color options for RMSX and Flipbook](flipbook_and_rmsx_color_maps.png)
 
 ### 1. Prerequisites
 - [**Python**](https://www.python.org/) 3.7+ (tested with 3.8+).
+- [**Jupyter Notebooks**]](https://phoenixnap.com/kb/install-jupyter-notebook#:~:text=Install%20Jupyter%20Notebook%20on%20Linux,via%20pip) (Recommended) 
 - [**R**](https://cran.r-project.org/) installed and in your PATH (the `Rscript` command must be available).
 - [**ChimeraX**](https://www.cgl.ucsf.edu/chimerax/download.html) if you plan to use the **Flipbook** 3D visualization.
 - The RMSX code will attempt to install R packages like `ggplot2`, `viridis`, `dplyr`, etc., if they’re missing.
 
 ### 2. Installation
 
-Once you have those installed, just download and run the [Quick Start Guide Notebook](https://github.com/AntunesLab/rmsx/releases/download/v0.2.0/RMSX_FlipBook_Quickstart.ipynb)
-It will walk you through the process and allows your to try RMSX, Trajectory Maps, and Flipbook on your own trajectories or ones from our publication.
+Once you have those installed, just download and run the [Quick Start Guide Notebook](https://github.com/AntunesLab/rmsx/releases/tag/v0.2.2#:~:text=https%3A//github.com/AntunesLab/rmsx/blob/v0.2.2/RMSX_FlipBook_Quickstart.ipynb)
+It will walk you through the process and allow you to try RMSX, Trajectory Maps, and Flipbook on your own trajectories or ones from our publication.
 
 1. **Clone this repository**:
    ```bash
@@ -138,13 +137,14 @@ run_rmsx_flipbook(
 
 ---
 
-**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check the [Quick Start Guide](https://github.com/AntunesLab/rmsx/releases/download/v0.2.0/RMSX_FlipBook_Quickstart.ipynb)
+**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check the [Quick Start Guide](https://github.com/AntunesLab/rmsx/releases/tag/v0.2.2#:~:text=https%3A//github.com/AntunesLab/rmsx/blob/v0.2.2/RMSX_FlipBook_Quickstart.ipynb)
  and open an [issue on GitHub](https://github.com/AntunesLab/rmsx/issues) if you need further assistance.
 
 
 
 
 ![Protease RMSX and Flipbook Example](protease_rmsx_flipbook_overview.png)
+
 
 
 
