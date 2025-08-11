@@ -1,98 +1,76 @@
 #!/usr/bin/env Rscript
-
 # ----------------------------------------------------------------------------------------
-# This script generates RMSX heatmaps (and optionally triple plots with RMSD, RMSF).
-# It supports an optional global min/max color scale for direct comparisons across plots.
+# RMSX heatmaps (and optional triple plots with RMSD/RMSF)
+# - Minimal cross-platform package bootstrap (no sudo; installs to user library)
+# - Non-interactive: sets CRAN repo and suppresses prompts
+# - Same CLI interface as before
+# - Saves one PNG per chain: "<csv_basename>_rmsx_plot_chain_<ID>.png"
+#   (If triple=TRUE, the triple composite overwrites that filename.)
 # ----------------------------------------------------------------------------------------
 
-# Potentially required libraries:
-# library(ggplot2)
-# library(viridis)
-# library(tidyverse)
-# library(readr)
-# library(reshape2)
-# library(gridExtra)
-# library(grid
-# library(cowplot)
-
-packages <- c("viridis", "tidyverse")
-
-options(repos = list(CRAN = "https://cloud.r-project.org"))
-
-install_if_not_present <- function(pkg) {
-  # Installs a package if it's not already installed, and then loads it.
-  if (!require(pkg, character.only = TRUE)) {
-    install.packages(pkg, dependencies = TRUE)
-    library(pkg, character.only = TRUE)
+# ---- minimal package bootstrap ---------------------------------------------------------
+if (Sys.getenv("RMSX_NO_AUTO_INSTALL", "0") != "1") {
+  user_lib <- Sys.getenv("R_LIBS_USER")
+  if (user_lib == "") user_lib <- file.path(Sys.getenv("HOME"), "R", "library")
+  if (!dir.exists(user_lib)) dir.create(user_lib, recursive = TRUE, showWarnings = FALSE)
+  .libPaths(c(user_lib, .libPaths()))
+  repos <- getOption("repos")
+  if (is.null(repos) || is.na(repos["CRAN"]) || repos["CRAN"] == "@CRAN@") {
+    options(repos = c(CRAN = "https://cloud.r-project.org",
+                      RSPM = "https://packagemanager.posit.co/cran/latest"))
+  }
+  needed <- c("ggplot2","viridis","dplyr","tidyr","stringr","readr","gridExtra","grid")
+  miss <- needed[!vapply(needed, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))]
+  if (length(miss)) {
+    tryCatch(
+      install.packages(miss, lib = user_lib, dependencies = TRUE, quiet = TRUE),
+      error = function(e) {
+        message("RMSX: package auto-install failed (no internet or blocked repo?).")
+        message("       Preinstall missing packages or set RMSX_NO_AUTO_INSTALL=1 to skip.")
+        message("       Details: ", conditionMessage(e))
+      }
+    )
   }
 }
+suppressPackageStartupMessages({
+  library(ggplot2)
+  library(viridis)
+  library(dplyr)
+  library(tidyr)
+  library(stringr)
+  library(readr)
+  library(gridExtra)
+  library(grid)
+})
 
-sapply(packages, install_if_not_present)
-
-####
-# List of required packages
-packages <- c("ggplot2", "viridis", "dplyr", "tidyr", "stringr", "readr", "gridExtra", "grid")
-sapply(packages, install_if_not_present)
-
-
-#' @title parse_args
-#' @description Parses the command line arguments provided to the script.
-#'
-#' @return A list with elements:
-#'   - csv_path: The path to the RMSX CSV data file.
-#'   - rmsd: The path to the RMSD CSV file.
-#'   - rmsf: The path to the RMSF CSV file.
-#'   - interpolate: Logical flag for raster interpolation.
-#'   - triple: Logical flag indicating whether to produce a triple plot (RMSX, RMSD, RMSF).
-#'   - palette: The color palette name (for viridis).
-#'   - manual_min: Optional numeric lower limit for the color scale.
-#'   - manual_max: Optional numeric upper limit for the color scale.
-#'   - log_transform: Optional logical flag to apply log transformation to numeric data.
-#'   - custom_fill_label: Optional string to override the default fill label.
-#'
-#' @details This function reads arguments passed to the script. If no arguments are found,
-#' it stops. If additional arguments (7, 8, 9, 10) are present, they are parsed as numbers,
-#' logical, or string as appropriate.
+# ---- argument parsing ------------------------------------------------------------------
+# args: 1 csv_path, 2 rmsd_csv, 3 rmsf_csv, 4 interpolate(T/F), 5 triple(T/F),
+#       6 palette, 7 manual_min ("" or num), 8 manual_max ("" or num),
+#       9 log_transform (T/F), 10 custom_fill_label ("" or text)
 parse_args <- function() {
   args <- commandArgs(trailingOnly = TRUE)
-
-  if (length(args) == 0) {
-    stop("No CSV file path provided!", call. = FALSE)
+  if (length(args) < 6) {
+    stop("Usage: plot_rmsx.R <rmsx_csv> <rmsd_csv> <rmsf_csv> <interpolate TRUE|FALSE> <triple TRUE|FALSE> <palette> [min] [max] [log TRUE|FALSE] [fill_label]",
+         call. = FALSE)
   }
 
-  print("arg 1"); print(args[1])
-  print("arg 2"); print(args[2])
-  print("arg 3"); print(args[3])
-  print("arg 4"); print(args[4])
-  print("arg 5"); print(args[5])
-  print("arg 6"); print(args[6])
+  # Optional numeric min/max
+  manual_min <- if (length(args) >= 7 && nzchar(args[7])) suppressWarnings(as.numeric(args[7])) else NA_real_
+  manual_max <- if (length(args) >= 8 && nzchar(args[8])) suppressWarnings(as.numeric(args[8])) else NA_real_
 
-  # Optionally: manual min & max for the color scale
-  manual_min <- NA
-  manual_max <- NA
-  if (length(args) >= 7 && args[7] != "") {
-    manual_min <- as.numeric(args[7])
-  }
-  if (length(args) >= 8 && args[8] != "") {
-    manual_max <- as.numeric(args[8])
-  }
+  # Optional log flag
+  log_transform <- if (length(args) >= 9 && nzchar(args[9])) identical(toupper(args[9]), "TRUE") else FALSE
 
-  # Parse log_transform flag (argument 9)
-  log_transform <- ifelse("TRUE" == args[9], TRUE, FALSE)
-
-  # Parse custom fill label (argument 10)
-  custom_fill_label <- ""
-  if (length(args) >= 10 && args[10] != "") {
-    custom_fill_label <- args[10]
-  }
+  # Optional custom fill label
+  custom_fill_label <- if (length(args) >= 10) args[10] else ""
 
   list(
-    csv_path = args[1],
-    rmsd = args[2],
-    rmsf = args[3],
-    interpolate = ifelse("TRUE" == args[4], TRUE, FALSE),
-    triple = ifelse("TRUE" == args[5], TRUE, FALSE),
-    palette = args[6],
+    csv_path   = args[1],
+    rmsd       = args[2],
+    rmsf       = args[3],
+    interpolate= identical(toupper(args[4]), "TRUE"),
+    triple     = identical(toupper(args[5]), "TRUE"),
+    palette    = args[6],
     manual_min = manual_min,
     manual_max = manual_max,
     log_transform = log_transform,
@@ -100,86 +78,27 @@ parse_args <- function() {
   )
 }
 
-#' @title read_and_summarize_csv
-#' @description Reads the RMSX CSV file and prints the count of rows by ChainID.
-#'
-#' @param csv_path String, path to the RMSX CSV file.
-#' @return A data frame (tibble) of the raw RMSX data.
+# ---- IO helpers ------------------------------------------------------------------------
 read_and_summarize_csv <- function(csv_path) {
-  rmsx_raw <- read_csv(csv_path)
-  count_by_chainID <- rmsx_raw %>%
-    group_by(ChainID) %>%
-    summarise(Count = n(), .groups = 'drop')
-  print(count_by_chainID)
+  rmsx_raw <- readr::read_csv(csv_path, show_col_types = FALSE)
+  by_chain <- rmsx_raw %>% group_by(ChainID) %>% summarise(Count = n(), .groups = "drop")
+  print(by_chain)
   rmsx_raw
 }
 
-#' @title process_data_by_chain_id
-#' @description Processes RMSX data for a specific Chain ID and prepares it for plotting.
-#'
-#' @param rmsx_raw A data frame (tibble) containing the RMSX data.
-#' @param id The chain identifier (e.g., "A").
-#' @param csv_path Path to the CSV file containing the RMSX data.
-#' @param interpolate Logical, whether to interpolate in geom_raster.
-#' @param palette The viridis color palette option to use.
-#' @param manual_min Optional numeric lower limit for color scale, NA if not used.
-#' @param manual_max Optional numeric upper limit for color scale, NA if not used.
-#' @param log_transform Logical flag to indicate if data has been log-transformed.
-#' @param custom_fill_label Optional string to override the default fill label.
-#' @return A ggplot object representing the RMSX plot for the given chain.
-#'
-#' @details
-#' This function extracts data for one specific Chain ID. It determines the simulation length
-#' from the filename and calculates the spacing (step_size) between time points.
-process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palette, manual_min, manual_max, log_transform, custom_fill_label) {
-  rmsx <- rmsx_raw %>%
-    filter(ChainID == id) %>%
-    select(-ChainID)
+# ---- plotting helpers ------------------------------------------------------------------
+plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len,
+                      manual_min, manual_max, log_transform = FALSE, custom_fill_label = "") {
 
-  filename <- basename(csv_path)
-  parts <- str_split(filename, "_", simplify = TRUE)
-  simulation_time <- as.numeric(parts[ncol(parts) - 1])
-  message("Simulation time =", simulation_time)
-
-  sim_len <- simulation_time
-  num_time_points <- ncol(rmsx) - 1
-  step_size <- sim_len / num_time_points
-
-  # Centers run from step_size/2 to sim_len - step_size/2
-  column_numbers <- seq(step_size/2, sim_len - step_size/2, length.out = num_time_points)
-
-  names(rmsx) <- c("Residue", column_numbers)
-  rmsx_long <- pivot_longer(rmsx, cols = -Residue, names_to = "Time_Point", values_to = "RMSF")
-  rmsx_long$Time_Point <- as.numeric(rmsx_long$Time_Point)
-
-  plot_rmsx(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max, log_transform, custom_fill_label)
-}
-
-#' @title plot_rmsx
-#' @description Creates a raster plot of RMSX values over time and residue index.
-#'
-#' @param rmsx_long A long-format data frame with columns: Residue, Time_Point, and RMSF.
-#' @param interpolate Logical, whether geom_raster should interpolate the fill values.
-#' @param palette The viridis palette option.
-#' @param step_size The time increment between frames.
-#' @param sim_len The total simulation length in ns.
-#' @param manual_min Optional numeric lower limit for color scale, NA if not used.
-#' @param manual_max Optional numeric upper limit for color scale, NA if not used.
-#' @param log_transform Logical flag to indicate if data has been log-transformed.
-#' @param custom_fill_label Optional string to override the default fill label.
-#'
-#' @return A ggplot object of the RMSX raster plot.
-plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len, manual_min, manual_max, log_transform = FALSE, custom_fill_label = "") {
   fill_scale <- if (!is.na(manual_min) && !is.na(manual_max)) {
     scale_fill_viridis(option = palette, limits = c(manual_min, manual_max))
   } else {
     scale_fill_viridis(option = palette)
   }
 
-  # Use the custom fill label if provided; otherwise, use default based on log_transform
-  fill_label <- if (!is.null(custom_fill_label) && custom_fill_label != "") {
+  fill_label <- if (nzchar(custom_fill_label)) {
     custom_fill_label
-  } else if (log_transform) {
+  } else if (isTRUE(log_transform)) {
     "Log-\nScaled\nRMSX"
   } else {
     "RMSX (Å)"
@@ -194,134 +113,105 @@ plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len, manua
     labs(x = "Time (ns)", y = "Residue (Index)", fill = fill_label)
 }
 
-#' @title save_plot
-#' @description Saves the plot to a PNG file.
-#'
-#' @param rmsx_plot A ggplot object to save.
-#' @param csv_path Path to the RMSX CSV file used to generate the plot.
-#' @param id The Chain ID, used to name the output file.
-#' @return The output file path as a string.
-save_plot <- function(rmsx_plot, csv_path, id) {
-  output_filename <- gsub(pattern = "\\.csv$", replacement = paste("_rmsx_plot_chain_", id, ".png", sep=""), basename(csv_path))
-  output_filepath <- file.path(dirname(csv_path), output_filename)
-  ggsave(output_filepath, plot = rmsx_plot, width = 10, height = 6, dpi = 200)
-  output_filepath
-}
-
-#' @title plot_rmsd
-#' @description Creates a line plot of RMSD values over frames.
-#'
-#' @param rmsd A data frame containing RMSD values.
-#' @param Frame The frame column from the RMSD data.
-#' @param RMSD The RMSD column.
-#' @return A ggplot object showing RMSD over frames.
-plot_rmsd <- function(rmsd, Frame, RMSD) {
+plot_rmsd <- function(rmsd) {
   ggplot(rmsd, aes(x = Frame, y = RMSD)) +
     geom_line() +
     theme_minimal() +
-   labs(
-   x = "",
-   y = "RMSD (Å)",
-   title = ""
-   )
+    labs(x = "", y = "RMSD (Å)", title = "")
 }
 
-#' @title plot_rmsf
-#' @description Creates a line plot of RMSF values over residues.
-#'
-#' @param rmsf_whole_traj A data frame with RMSF values.
-#' @param ResidueID The residue ID column.
-#' @param RMSF The RMSF column.
-#' @return A ggplot object showing RMSF per residue.
-plot_rmsf <- function(rmsf_whole_traj, ResidueID, RMSF) {
+plot_rmsf <- function(rmsf_whole_traj) {
   ggplot(rmsf_whole_traj, aes(x = ResidueID, y = RMSF)) +
     geom_line() +
     theme_minimal() +
     coord_flip() +
-    labs(
-      x = "",
-      y = "RMSF (Å)",
-    )
+    labs(x = "", y = "RMSF (Å)")
 }
 
-
-#' @title plot_triple
-#' @description Arranges RMSD, RMSX, and RMSF plots into a single composite figure.
-#'
-#' @param rmsx_plot The RMSX heatmap plot.
-#' @param rmsd_plot The RMSD line plot.
-#' @param rmsf_plot The RMSF line plot.
-#' @return A grob containing the arranged plots.
 plot_triple <- function(rmsx_plot, rmsd_plot, rmsf_plot) {
-  plot_elements <- list(rmsd_plot, rmsx_plot, rmsf_plot, nullGrob())
-
-  arranged_elements <- arrangeGrob(grobs = plot_elements, layout_matrix=
-                                     rbind(c(4,4,1,1,1,1,1,1,4,4,4),
-                                           c(4,4,1,1,1,1,1,1,4,4,4),
-                                           c(4,2,2,2,2,2,2,2,3,3,3),
-                                           c(4,2,2,2,2,2,2,2,3,3,3),
-                                           c(4,2,2,2,2,2,2,2,3,3,3),
-                                           c(4,2,2,2,2,2,2,2,3,3,3)))
-  arranged_elements
+  arrangeGrob(
+    grobs = list(rmsd_plot, rmsx_plot, rmsf_plot, nullGrob()),
+    layout_matrix = rbind(
+      c(4,4,1,1,1,1,1,1,4,4,4),
+      c(4,4,1,1,1,1,1,1,4,4,4),
+      c(4,2,2,2,2,2,2,2,3,3,3),
+      c(4,2,2,2,2,2,2,2,3,3,3),
+      c(4,2,2,2,2,2,2,2,3,3,3),
+      c(4,2,2,2,2,2,2,2,3,3,3)
+    )
+  )
 }
 
-#' @title main
-#' @description The main function executing the analysis and plotting.
-#'
-#' @details
-#' - Parses arguments to get CSV paths and options.
-#' - Reads the RMSX data and summarizes it.
-#' - If log transformation is enabled, assumes the CSV already contains log-scaled data
-#'   (i.e., it does not apply log1p again).
-#' - For each Chain ID in the data:
-#'   1. Processes the data to create RMSX plots with proper time alignment.
-#'   2. Saves the RMSX plot.
-#'   3. If triple plotting is enabled, also reads RMSD and RMSF data, creates the combined triple plot, and saves it.
-#' - Finally, prints out where the plots are saved.
+save_plot <- function(plot_obj, csv_path, id) {
+  outfile <- sub("\\.csv$", paste0("_rmsx_plot_chain_", id, ".png"), basename(csv_path))
+  outpath <- file.path(dirname(csv_path), outfile)
+  # ggsave can handle both ggplot objects and grobs
+  ggsave(outpath, plot = plot_obj, width = 10, height = 6, dpi = 200)
+  message("Saved: ", normalizePath(outpath, winslash = "/"))
+  outpath
+}
+
+# ---- per-chain processing --------------------------------------------------------------
+process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palette,
+                                     manual_min, manual_max, log_transform, custom_fill_label) {
+  rmsx <- rmsx_raw %>%
+    filter(ChainID == id) %>%
+    select(-ChainID)
+
+  # Filename pattern: "..._<length_ns>_ns.csv" (e.g., rmsx_mon_sys_0.015_ns.csv)
+  filename <- basename(csv_path)
+  parts <- stringr::str_split(filename, "_", simplify = TRUE)
+  # The numeric length is the penultimate token before "ns.csv"
+  # Example tokens: [rmsx][mon][sys][0.015][ns.csv] -> take index ncol(parts)-1
+  simulation_time <- suppressWarnings(as.numeric(parts[ncol(parts) - 1]))
+  if (!is.finite(simulation_time)) {
+    stop("Could not parse simulation time from filename: ", filename)
+  }
+  message("Simulation time = ", simulation_time)
+
+  sim_len <- simulation_time
+  num_time_points <- ncol(rmsx) - 1
+  if (num_time_points <= 0) stop("No time-slice columns found in CSV for ChainID ", id)
+
+  step_size <- sim_len / num_time_points
+  centers <- seq(step_size / 2, sim_len - step_size / 2, length.out = num_time_points)
+
+  names(rmsx) <- c("Residue", centers)
+  rmsx_long <- pivot_longer(rmsx, cols = -Residue, names_to = "Time_Point", values_to = "RMSF")
+  rmsx_long$Time_Point <- as.numeric(rmsx_long$Time_Point)
+
+  plot_rmsx(rmsx_long, interpolate, palette, step_size, sim_len,
+            manual_min, manual_max, log_transform, custom_fill_label)
+}
+
+# ---- main ------------------------------------------------------------------------------
 main <- function() {
   args <- parse_args()
   rmsx_raw <- read_and_summarize_csv(args$csv_path)
 
-  # Instead of applying the log transformation here, we assume that if log_transform is TRUE,
-  # the CSV already contains log-scaled values.
-  if (args$log_transform) {
-    message("Log transformation selected: assuming CSV contains log-scaled RMSX values.")
+  if (isTRUE(args$log_transform)) {
+    message("Log transform requested: assuming CSV already contains log-scaled values.")
   }
 
   for (id in unique(rmsx_raw$ChainID)) {
-    # Pass manual_min, manual_max, log_transform, and custom_fill_label to the plot
     rmsx_plot <- process_data_by_chain_id(
       rmsx_raw, id, args$csv_path,
       args$interpolate, args$palette,
       args$manual_min, args$manual_max,
-      args$log_transform,
-      args$custom_fill_label
+      args$log_transform, args$custom_fill_label
     )
 
-    save_plot(rmsx_plot, args$csv_path, id)
-
-    if (args$triple == TRUE) {
-      rmsd_data <- read_csv(args$rmsd)
-      rmsf_data <- read_csv(args$rmsf)
-
-      rmsd_plot <- plot_rmsd(rmsd_data, rmsd_data$Frame, rmsd_data$RMSD)
-      rmsf_plot <- plot_rmsf(rmsf_data, rmsf_data$ResidueID, rmsf_data$RMSF)
-      triple_plot <- plot_triple(rmsx_plot, rmsd_plot, rmsf_plot)
-      save_plot(triple_plot, args$csv_path, id)
-
-      output_file <- "./triple_plot.png"
-      png(output_file, width = 800, height = 600)
-      grid::grid.draw(triple_plot)
+    # If triple, build and save the composite; otherwise save heatmap
+    if (isTRUE(args$triple)) {
+      rmsd_data <- readr::read_csv(args$rmsd, show_col_types = FALSE)
+      rmsf_data <- readr::read_csv(args$rmsf, show_col_types = FALSE)
+      triple_plot <- plot_triple(rmsx_plot, plot_rmsd(rmsd_data), plot_rmsf(rmsf_data))
+      save_plot(triple_plot, args$csv_path, id)   # overwrites heatmap filename
     } else {
-      output_file <- "./rmsx_plot.png"
-      png(output_file, width = 800, height = 600)
-      grid::grid.draw(rmsx_plot)
+      save_plot(rmsx_plot, args$csv_path, id)
     }
-
-    dev.off()
-    cat("Plot saved to:", normalizePath(output_file), "\n")
-    rmsx_plot
   }
 }
 
-main()
+invisible(main())
+
