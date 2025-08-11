@@ -511,6 +511,7 @@ def calculate_rmsf(
             print(f"RMSF data saved to {rmsf_output_filepath}")
         return rmsf_output_filepath
 
+
 def create_r_plot(
         rmsx_csv,
         rmsd_csv,
@@ -523,24 +524,69 @@ def create_r_plot(
         max_val=None,
         log_transform=True,
         custom_fill_label="",
-        verbose=True
+        verbose=True,
 ):
     """
-    Run the R script to generate RMSX plots and display the first image.
-    Returns True if a plot image was found/displayed, else False.
+    Run the R plotting script and display the resulting heatmap.
+
+    Parameters
+    ----------
+    rmsx_csv : str or Path
+        Path to the RMSX CSV produced per chain (e.g., ".../chain_A_rmsx/rmsx_*.csv").
+        The PNG will be searched for in this CSV's directory.
+    rmsd_csv : str or Path or None
+        Path to RMSD CSV (may be None to skip).
+    rmsf_csv : str or Path or None
+        Path to RMSF CSV (may be None to skip).
+    rscript_executable : str
+        Rscript executable name or full path (default: "Rscript").
+    interpolate : bool
+        Whether to interpolate in the heatmap.
+    triple : bool
+        Whether to produce the triple-panel figure in R.
+    palette : str
+        Viridis/magma/plasma/etc. palette name used by the R script.
+    min_val, max_val : float or None
+        Optional fixed color scale min/max for cross-chain sync.
+    log_transform : bool
+        If True, the R script expects log-transformed RMSX columns (e.g., *_log.dcd).
+    custom_fill_label : str
+        Label to use for the heatmap scale (e.g., "Shift\\nin Å").
+    verbose : bool
+        If True, prints detailed status and R stdout/stderr on failure.
+
+    Returns
+    -------
+    str or None
+        Absolute path of the PNG that was displayed (if found), else None.
+
+    Notes
+    -----
+    * This function now runs the R process with cwd set to the CSV directory.
+      That makes where R writes PNG/PDF deterministic across OSes.
+    * The PNG search is narrowed to files matching "*rmsx*_plot_chain_*.png".
+      If none are found, it falls back to any "*.png" in that folder.
+    * Prior versions returned True/False; this version returns the PNG path or None.
+      Call sites that ignored the return value remain unaffected.
     """
+    # Convert flags for R
     interpolate_str   = 'TRUE' if interpolate else 'FALSE'
     triple_str        = 'TRUE' if triple else 'FALSE'
     log_transform_str = 'TRUE' if log_transform else 'FALSE'
 
-    # 0) Quick sanity check for Rscript
+    # Resolve important paths up front
+    rmsx_path = Path(rmsx_csv).resolve()
+    chain_dir = rmsx_path.parent
+
+    # 0) Quick sanity check for Rscript availability
     try:
         _ = subprocess.run([rscript_executable, "--version"], capture_output=True, text=True)
     except FileNotFoundError:
         if verbose:
-            print("Rscript not found. Skipping plot. Set RSCRIPT to your Rscript.exe path.")
-        return False
+            print("Rscript not found. Skipping plot. Set RSCRIPT to your Rscript path.")
+        return None
 
+    # 1) Locate the R script inside the installed package
     try:
         try:
             current_dir = Path(__file__).parent.resolve()
@@ -551,15 +597,17 @@ def create_r_plot(
         if not r_script_path.is_file():
             if verbose:
                 print(f"Error: R script not found at {r_script_path}.")
-            return False
+            return None
 
         if verbose:
-            print(f"Found R script at {r_script_path}.")
+            print(f"Found R script at: {r_script_path}")
+            print(f"CSV dir (cwd for R): {chain_dir}")
 
+        # 2) Build the R command
         cmd = [
             rscript_executable,
             r_script_path.as_posix(),
-            Path(rmsx_csv).as_posix(),
+            rmsx_path.as_posix(),
             Path(rmsd_csv).as_posix() if rmsd_csv else "",
             Path(rmsf_csv).as_posix() if rmsf_csv else "",
             interpolate_str,
@@ -568,14 +616,16 @@ def create_r_plot(
             "" if min_val is None else str(min_val),
             "" if max_val is None else str(max_val),
             log_transform_str,
-            custom_fill_label
+            custom_fill_label,
         ]
 
         if verbose:
             print("Running R script command:")
             print(" ".join(cmd))
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # 3) Run R with cwd set to the chain directory
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=str(chain_dir))
+
         if result.returncode != 0:
             if verbose:
                 print("R script execution failed.")
@@ -583,48 +633,52 @@ def create_r_plot(
                     print("R STDOUT:\n", result.stdout)
                 if result.stderr.strip():
                     print("R STDERR:\n", result.stderr)
-            return False
+            return None
         else:
             if verbose:
                 print("R script executed successfully.")
                 if result.stdout.strip():
                     print("R STDOUT:\n", result.stdout)
 
-    except FileNotFoundError:
-        if verbose:
-            print(f"Error: Rscript executable not found: {rscript_executable}. "
-                  "Please ensure R is installed and 'Rscript' is in your PATH.")
-        return False
     except Exception as e:
         if verbose:
-            print(f"An unexpected error occurred: {e}")
-        return False
+            print(f"An unexpected error occurred while running R: {e}")
+        return None
 
-    # 3) Try to display the most recent PNG
+    # 4) Find the most relevant PNG and display it
     try:
-        rmsx_path = Path(rmsx_csv).resolve()
-        directory = rmsx_path.parent
-        if not directory.is_dir():
-            if verbose:
-                print(f"Error: The directory does not exist: {directory}")
-            return False
+        if verbose:
+            print("Looking for PNGs in:", chain_dir)
 
-        # pick newest image by mtime
-        image_files = sorted(directory.glob('*.png'), key=lambda p: p.stat().st_mtime, reverse=True)
+        # Prefer the RMSX heatmap naming; fall back to any PNG
+        image_files = sorted(
+            chain_dir.glob('*rmsx*_plot_chain_*.png'),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True
+        )
+        if not image_files:
+            image_files = sorted(
+                chain_dir.glob('*.png'),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True
+            )
+
         if image_files:
             first_image = image_files[0]
             if verbose:
-                print(f"Displaying image: {first_image}")
+                print("Displaying image:", first_image.name)
             display(Image(filename=str(first_image)))
-            return True
+            return str(first_image.resolve())
         else:
             if verbose:
-                print("No PNG files found in the specified directory.")
-            return False
+                print("No PNG files found in:", chain_dir)
+            return None
+
     except Exception as e:
         if verbose:
-            print(f"An error occurred while searching for PNG files: {e}")
-        return False
+            print(f"Error while searching/displaying PNGs: {e}")
+        return None
+
 
 
 def update_pdb_bfactor(coord_file, rmsx_df, silent=False, verbose=True):
