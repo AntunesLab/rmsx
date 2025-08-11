@@ -8,40 +8,59 @@
 #   (If triple=TRUE, the triple composite overwrites that filename.)
 # ----------------------------------------------------------------------------------------
 
+
 # ---- minimal package bootstrap ---------------------------------------------------------
 if (Sys.getenv("RMSX_NO_AUTO_INSTALL", "0") != "1") {
   user_lib <- Sys.getenv("R_LIBS_USER")
   if (user_lib == "") user_lib <- file.path(Sys.getenv("HOME"), "R", "library")
   if (!dir.exists(user_lib)) dir.create(user_lib, recursive = TRUE, showWarnings = FALSE)
   .libPaths(c(user_lib, .libPaths()))
-  repos <- getOption("repos")
-  if (is.null(repos) || is.na(repos["CRAN"]) || repos["CRAN"] == "@CRAN@") {
-    options(repos = c(CRAN = "https://cloud.r-project.org",
-                      RSPM = "https://packagemanager.posit.co/cran/latest"))
+
+  # Prefer a repo with binaries when possible; CRAN as fallback
+  if (.Platform$OS.type == "unix") {
+    options(repos = c(RSPM = "https://packagemanager.posit.co/cran/latest",
+                      CRAN = "https://cloud.r-project.org"))
+  } else {
+    options(repos = c(CRAN = "https://cloud.r-project.org"))
   }
+
   needed <- c("ggplot2","viridis","dplyr","tidyr","stringr","readr","gridExtra","grid")
   miss <- needed[!vapply(needed, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))]
+
   if (length(miss)) {
+    message("RMSX: installing missing R packages into: ", normalizePath(user_lib, winslash = "/"))
+    message("RMSX: missing packages: ", paste(miss, collapse = ", "))
+
+    # Speed up source builds
+    if (is.na(getOption("Ncpus"))) {
+      nc <- tryCatch(parallel::detectCores(), error = function(e) 1)
+      options(Ncpus = max(1, as.integer(nc)))
+    }
+
+    t0 <- proc.time()[["elapsed"]]
+    ok <- TRUE
     tryCatch(
-      install.packages(miss, lib = user_lib, dependencies = TRUE, quiet = TRUE),
+      install.packages(miss, lib = user_lib, dependencies = TRUE, quiet = FALSE),
       error = function(e) {
+        ok <<- FALSE
         message("RMSX: package auto-install failed (no internet or blocked repo?).")
-        message("       Preinstall missing packages or set RMSX_NO_AUTO_INSTALL=1 to skip.")
-        message("       Details: ", conditionMessage(e))
+        message("      Preinstall the above packages or set RMSX_NO_AUTO_INSTALL=1 to skip.")
+        message("      Details: ", conditionMessage(e))
       }
     )
+    t1 <- proc.time()[["elapsed"]]
+    if (ok) message(sprintf("RMSX: package install finished in %.1f sec.", t1 - t0))
+  } else {
+    message("RMSX: all required R packages are already installed.")
   }
 }
+
 suppressPackageStartupMessages({
-  library(ggplot2)
-  library(viridis)
-  library(dplyr)
-  library(tidyr)
-  library(stringr)
-  library(readr)
-  library(gridExtra)
-  library(grid)
+  library(ggplot2); library(viridis); library(dplyr); library(tidyr)
+  library(stringr); library(readr);   library(gridExtra); library(grid)
 })
+
+
 
 # ---- argument parsing ------------------------------------------------------------------
 # args: 1 csv_path, 2 rmsd_csv, 3 rmsf_csv, 4 interpolate(T/F), 5 triple(T/F),
