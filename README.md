@@ -1,5 +1,5 @@
 # RMSDxRMSF = RMSX
-RMSX Combines the Features of RMSD and RMSF into a simple-to-understand and simple-to-implement tool for understanding how proteins move. It can work with simulation files from across MD simulation suites (e.g., GROMACS and NAMD, Amber etc.) and is much faster than other visualization methods while delivering publication-ready images out of the box. 
+RMSX combines the features of RMSD and RMSF into a simple-to-understand and simple-to-implement tool for understanding how proteins move. It can work with simulation files from across MD simulation suites (e.g., GROMACS and NAMD, Amber etc.) and is much faster than other visualization methods while delivering publication-ready images out of the box. 
 
 
 ![Color options for RMSX and Flipbook](flipbook_and_rmsx_color_maps.png)
@@ -13,7 +13,7 @@ RMSX Combines the Features of RMSD and RMSF into a simple-to-understand and simp
 
 ### 2. Installation
 
-Once you have those installed, just download and run the [Quick Start Guide Notebook](https://github.com/AntunesLab/rmsx/releases/tag/v0.2.2#:~:text=https%3A//github.com/AntunesLab/rmsx/blob/v0.2.2/RMSX_FlipBook_Quickstart.ipynb)
+Once you have those installed, just download and run the [Quick Start Guide Notebook](https://github.com/AntunesLab/rmsx/releases/tag/v0.2.2#:~:text=3-,RMSX_FlipBook_Quickstart.ipynb,-sha256%3A345588afc20bcf4375679e8aa1764dfd4d9c4dfac2642da58d4265f6a43d341e)
 It will walk you through the process and allow you to try RMSX, Trajectory Maps, and Flipbook on your own trajectories or ones from our publication.
 
 1. **Clone this repository**:
@@ -137,13 +137,14 @@ run_rmsx_flipbook(
 
 ---
 
-**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check the [Quick Start Guide](https://github.com/AntunesLab/rmsx/releases/tag/v0.2.2#:~:text=https%3A//github.com/AntunesLab/rmsx/blob/v0.2.2/RMSX_FlipBook_Quickstart.ipynb)
+**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check the [https://github.com/AntunesLab/rmsx/releases/tag/v0.2.2#:~:text=3-,RMSX_FlipBook_Quickstart.ipynb,-sha256%3A345588afc20bcf4375679e8aa1764dfd4d9c4dfac2642da58d4265f6a43d341e)
  and open an [issue on GitHub](https://github.com/AntunesLab/rmsx/issues) if you need further assistance.
 
 
 
 
 ![Protease RMSX and Flipbook Example](protease_rmsx_flipbook_overview.png)
+
 
 
 
