@@ -131,11 +131,10 @@ run_rmsx_flipbook(
    - **Note**: In a notebook environment, the cell may not complete until you close ChimeraX.
 
 ### 6. Additional Notes
-
+- **First Runs** R takes some time to download all the required packages the first time the program is run. This only happens once. 
 - **Chain IDs**: If your PDB has chain “A” or “B”, but `chain_sele="C"` is passed, you’ll see errors or zero B-factors. Ensure the chain ID matches.
-- **Residue Numbering**: If your PDB numbering starts at 100, but your trajectory references 1–100, you might see zero B-factors. Make sure they match.
 - **ChimeraX**: [Download here](https://www.cgl.ucsf.edu/chimerax/download.html) if you’d like to visualize the flipbook.
-- **Jupyter Notebook Behavior**: If you call `run_rmsx_flipbook` inside a Jupyter cell, ChimeraX runs interactively. The next cell won’t run until you **close** ChimeraX (or run it in detached mode).
+- **Jupyter Notebook Behavior**: If you call `run_rmsx_flipbook` inside a Jupyter cell, ChimeraX runs interactively. The next cell won’t run until you **close** ChimeraX (or run it in detached mode). 
 
 ---
 
@@ -145,6 +144,7 @@ run_rmsx_flipbook(
 
 
 ![Protease RMSX and Flipbook Example](protease_rmsx_flipbook_overview.png)
+
 
 
 
