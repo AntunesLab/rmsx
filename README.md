@@ -139,13 +139,14 @@ run_rmsx_flipbook(
 
 ---
 
-**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check the [https://github.com/AntunesLab/rmsx/releases/tag/v0.2.2#:~:text=3-,RMSX_FlipBook_Quickstart.ipynb,-sha256%3A345588afc20bcf4375679e8aa1764dfd4d9c4dfac2642da58d4265f6a43d341e)
+**That’s it!** For more examples and advanced usage (like changing time frames, customizing color scale limits, or combining multi-chain PDB files), check the [**Quick Start Guide**](https://github.com/AntunesLab/rmsx/releases/tag/v0.2.2#:~:text=3-,RMSX_FlipBook_Quickstart.ipynb,-sha256%3A345588afc20bcf4375679e8aa1764dfd4d9c4dfac2642da58d4265f6a43d341e)
  and open an [issue on GitHub](https://github.com/AntunesLab/rmsx/issues) if you need further assistance.
 
 
 
 
 ![Protease RMSX and Flipbook Example](protease_rmsx_flipbook_overview.png)
+
 
 
 
