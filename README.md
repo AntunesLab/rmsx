@@ -139,12 +139,13 @@ run_rmsx_flipbook(
 
 ---
 
-**That’s it!** For more examples and advanced usage check out the [**Quick Start Guide**](https://github.com/AntunesLab/rmsx/releases/tag/v0.2.2#:~:text=3-,RMSX_FlipBook_Quickstart.ipynb,-sha256%3A345588afc20bcf4375679e8aa1764dfd4d9c4dfac2642da58d4265f6a43d341e). If you need anything, open an issue on [issue on GitHub](https://github.com/AntunesLab/rmsx/issues). 
+**That’s it!** For more examples and advanced usage check out the [**Quick Start Guide**](https://github.com/AntunesLab/rmsx/releases/tag/v0.2.2#:~:text=3-,RMSX_FlipBook_Quickstart.ipynb,-sha256%3A345588afc20bcf4375679e8aa1764dfd4d9c4dfac2642da58d4265f6a43d341e). If you need anything, open an [issue on GitHub](https://github.com/AntunesLab/rmsx/issues). 
 
 
 
 
 ![Protease RMSX and Flipbook Example](protease_rmsx_flipbook_overview.png)
+
 
 
 
