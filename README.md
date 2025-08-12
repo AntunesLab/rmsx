@@ -15,7 +15,7 @@ RMSX combines the features of RMSD and RMSF into a simple-to-understand and simp
 
 ### 2. Installation
 
-Once you have those installed, just download and run the [Quick Start Guide Notebook](https://github.com/AntunesLab/rmsx/releases/tag/v0.2.2#:~:text=3-,RMSX_FlipBook_Quickstart.ipynb,-sha256%3A345588afc20bcf4375679e8aa1764dfd4d9c4dfac2642da58d4265f6a43d341e)
+Once you have those installed, just download and run the [**Quick Start Guide Notebook**](https://github.com/AntunesLab/rmsx/releases/tag/v0.2.2#:~:text=3-,RMSX_FlipBook_Quickstart.ipynb,-sha256%3A345588afc20bcf4375679e8aa1764dfd4d9c4dfac2642da58d4265f6a43d341e)
 It will walk you through the process and allow you to try RMSX, Trajectory Maps, and Flipbook on your own trajectories or ones from our publication.
 
 1. **Clone this repository**:
@@ -146,6 +146,7 @@ run_rmsx_flipbook(
 
 
 ![Protease RMSX and Flipbook Example](protease_rmsx_flipbook_overview.png)
+
 
 
 
