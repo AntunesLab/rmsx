@@ -107,6 +107,7 @@ from pathlib import Path
 
 # If you have the flipbook module in the same directory structure, update import as needed
 from .flipbook import run_flipbook
+from .output_safety import prepare_managed_output_dir
 
 _CITATION_NOTICE_PRINTED = False
 _CITATION_NOTICE_ENV_DISABLE = {"1", "true", "yes", "y", "on"}
@@ -1621,41 +1622,13 @@ def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=N
         base_name = os.path.splitext(os.path.basename(topology_file))[0]
         output_dir = os.path.join(os.getcwd(), f"{base_name}_rmsx")
 
-    if os.path.exists(output_dir):
-        if overwrite:
-            if verbose:
-                print(f"Clearing main output directory: {output_dir}")
-            for file in os.listdir(output_dir):
-                file_path = os.path.join(output_dir, file)
-                try:
-                    if os.path.isfile(file_path) or os.path.islink(file_path):
-                        os.unlink(file_path)
-                    elif os.path.isdir(file_path):
-                        shutil.rmtree(file_path)
-                except Exception as e:
-                    if verbose:
-                        print(f"Failed to delete {file_path}. Reason: {e}")
-        else:
-            response = input(f"The main directory '{output_dir}' already exists. Overwrite? (y/n): ")
-            if response.strip().lower() != 'y':
-                raise RuntimeError("User chose not to overwrite the main output directory.")
-            else:
-                if verbose:
-                    print(f"Clearing main output directory: {output_dir}")
-                for file in os.listdir(output_dir):
-                    file_path = os.path.join(output_dir, file)
-                    try:
-                        if os.path.isfile(file_path) or os.path.islink(file_path):
-                            os.unlink(file_path)
-                        elif os.path.isdir(file_path):
-                            shutil.rmtree(file_path)
-                    except Exception as e:
-                        if verbose:
-                            print(f"Failed to delete {file_path}. Reason: {e}")
-    else:
-        os.makedirs(output_dir)
-        if verbose:
-            print(f"Created main output directory: {output_dir}")
+    prepare_managed_output_dir(
+        output_dir,
+        overwrite=overwrite,
+        verbose=verbose,
+        topology_file=topology_file,
+        trajectory_file=trajectory_file,
+    )
 
     u_top = mda.Universe(topology_file)
     chain_ids = np.unique(u_top.atoms.segids)
@@ -2403,41 +2376,13 @@ def all_chain_shift_map(
         base_name = os.path.splitext(os.path.basename(topology_file))[0]
         output_dir = os.path.join(os.getcwd(), f"{base_name}_shiftmap")
 
-    if os.path.exists(output_dir):
-        if overwrite:
-            if verbose:
-                print(f"Clearing main output directory: {output_dir}")
-            for file in os.listdir(output_dir):
-                file_path = os.path.join(output_dir, file)
-                try:
-                    if os.path.isfile(file_path) or os.path.islink(file_path):
-                        os.unlink(file_path)
-                    elif os.path.isdir(file_path):
-                        shutil.rmtree(file_path)
-                except Exception as e:
-                    if verbose:
-                        print(f"Failed to delete {file_path}. Reason: {e}")
-        else:
-            response = input(f"The main directory '{output_dir}' already exists. Overwrite? (y/n): ")
-            if response.strip().lower() != 'y':
-                raise RuntimeError("User chose not to overwrite the main output directory.")
-            else:
-                if verbose:
-                    print(f"Clearing main output directory: {output_dir}")
-                for file in os.listdir(output_dir):
-                    file_path = os.path.join(output_dir, file)
-                    try:
-                        if os.path.isfile(file_path) or os.path.islink(file_path):
-                            os.unlink(file_path)
-                        elif os.path.isdir(file_path):
-                            shutil.rmtree(file_path)
-                    except Exception as e:
-                        if verbose:
-                            print(f"Failed to delete {file_path}. Reason: {e}")
-    else:
-        os.makedirs(output_dir)
-        if verbose:
-            print(f"Created main output directory: {output_dir}")
+    prepare_managed_output_dir(
+        output_dir,
+        overwrite=overwrite,
+        verbose=verbose,
+        topology_file=topology_file,
+        trajectory_file=trajectory_file,
+    )
 
     u_top = mda.Universe(topology_file)
     chain_ids = np.unique(u_top.atoms.segids)

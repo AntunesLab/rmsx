@@ -51,6 +51,7 @@ from ..core import (
     get_selection_string,
     initialize_environment,
     setup_directory,
+    prepare_managed_output_dir,
     file_namer,
     calculate_rmsd,
     calculate_rmsf,
@@ -576,44 +577,13 @@ def all_chain_lddt_map(
         base_name = os.path.splitext(os.path.basename(topology_file))[0]
         output_dir = os.path.join(os.getcwd(), f"{base_name}_lddtmap")
 
-    # Handle main directory creation / clearing
-    if os.path.exists(output_dir):
-        if overwrite:
-            if verbose:
-                print(f"Clearing main output directory: {output_dir}")
-            for file in os.listdir(output_dir):
-                file_path = os.path.join(output_dir, file)
-                try:
-                    if os.path.isfile(file_path) or os.path.islink(file_path):
-                        os.unlink(file_path)
-                    elif os.path.isdir(file_path):
-                        import shutil
-                        shutil.rmtree(file_path)
-                except Exception as e:
-                    if verbose:
-                        print(f"Failed to delete {file_path}. Reason: {e}")
-        else:
-            response = input(f"The main directory '{output_dir}' already exists. Overwrite? (y/n): ")
-            if response.strip().lower() != "y":
-                raise RuntimeError("User chose not to overwrite the main output directory.")
-            else:
-                if verbose:
-                    print(f"Clearing main output directory: {output_dir}")
-                for file in os.listdir(output_dir):
-                    file_path = os.path.join(output_dir, file)
-                    try:
-                        if os.path.isfile(file_path) or os.path.islink(file_path):
-                            os.unlink(file_path)
-                        elif os.path.isdir(file_path):
-                            import shutil
-                            shutil.rmtree(file_path)
-                    except Exception as e:
-                        if verbose:
-                            print(f"Failed to delete {file_path}. Reason: {e}")
-    else:
-        os.makedirs(output_dir)
-        if verbose:
-            print(f"Created main output directory: {output_dir}")
+    prepare_managed_output_dir(
+        output_dir,
+        overwrite=overwrite,
+        verbose=verbose,
+        topology_file=topology_file,
+        trajectory_file=trajectory_file,
+    )
 
     u_top = mda.Universe(topology_file)
     chain_ids = np.unique(u_top.atoms.segids)
@@ -792,4 +762,3 @@ def run_lddt_flipbook(
         print("Full (1 − lDDT) Flipbook analysis completed successfully.")
 
     return combined_dir
-
