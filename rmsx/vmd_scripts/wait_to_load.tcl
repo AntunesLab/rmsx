@@ -64,6 +64,7 @@ proc run_main_script_after_delay {} {
 
     # Import the main script path we set above
     global main_script_path
+    global env
 
     # Check if the file exists before trying to run it
     if {![file exists $main_script_path]} {
@@ -76,6 +77,14 @@ proc run_main_script_after_delay {} {
 
     # Run your main script.
     source $main_script_path
+
+    if {[info exists env(RMSX_VMD_MASK_FILE)] && $env(RMSX_VMD_MASK_FILE) ne ""} {
+        if {[info procs applyMaskedTransparency] ne ""} {
+            if {[catch {applyMaskedTransparency $env(RMSX_VMD_MASK_FILE)} mask_err]} {
+                puts "WARNING: automatic masked transparency failed: $mask_err"
+            }
+        }
+    }
 
     puts "--- Main script has finished ---"
 }

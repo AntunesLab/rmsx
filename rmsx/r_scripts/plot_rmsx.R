@@ -15,14 +15,14 @@ if (!dir.exists(user_lib)) dir.create(user_lib, recursive = TRUE, showWarnings =
 .libPaths(c(user_lib, .libPaths()))
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 
-needed <- c("ggplot2","viridis","dplyr","tidyr","stringr","readr","gridExtra","grid")
-missing <- needed[!vapply(needed, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))]
-if (length(missing)) {
-  message("RMSX: installing: ", paste(missing, collapse = ", "))
-  install.packages(missing, lib = user_lib,
+base_needed <- c("ggplot2","viridis","dplyr","tidyr","stringr","readr","gridExtra","grid")
+base_missing <- base_needed[!vapply(base_needed, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))]
+if (length(base_missing)) {
+  message("RMSX: installing: ", paste(base_missing, collapse = ", "))
+  install.packages(base_missing, lib = user_lib,
                    dependencies = c("Depends","Imports","LinkingTo"))
 }
-suppressPackageStartupMessages(invisible(lapply(needed, require, character.only = TRUE)))
+suppressPackageStartupMessages(invisible(lapply(base_needed, require, character.only = TRUE)))
 # -----------------------------------------------------------------------------
 
 suppressPackageStartupMessages({
@@ -71,6 +71,49 @@ read_and_summarize_csv <- function(csv_path) {
   rmsx_raw
 }
 
+load_mask_metadata <- function(csv_path) {
+  mask_path <- file.path(dirname(csv_path), "masked_residues.csv")
+  if (!file.exists(mask_path)) {
+    return(NULL)
+  }
+
+  mask_data <- readr::read_csv(mask_path, show_col_types = FALSE)
+  required <- c("ResidueID", "ChainID", "Masked")
+  if (!all(required %in% names(mask_data))) {
+    stop("Mask metadata is missing required columns: ResidueID, ChainID, Masked", call. = FALSE)
+  }
+
+  mask_data %>%
+    transmute(
+      ResidueID = as.integer(ResidueID),
+      ChainID   = as.character(ChainID),
+      Masked    = as.logical(Masked)
+    )
+}
+
+ensure_pattern_support <- function(mask_data) {
+  if (is.null(mask_data) || !any(mask_data$Masked, na.rm = TRUE)) {
+    return(FALSE)
+  }
+
+  if (getRversion() < "4.1.0") {
+    stop(
+      "Masked heatmap rendering requires R 4.1+ because RMSX uses ggpattern for hatch overlays.",
+      call. = FALSE
+    )
+  }
+
+  pattern_needed <- c("ggpattern")
+  pattern_missing <- pattern_needed[!vapply(pattern_needed, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))]
+  if (length(pattern_missing)) {
+    message("RMSX: installing masked-plot support: ", paste(pattern_missing, collapse = ", "))
+    install.packages(pattern_missing, lib = user_lib,
+                     dependencies = c("Depends","Imports","LinkingTo"))
+  }
+  suppressPackageStartupMessages(invisible(lapply(pattern_needed, require, character.only = TRUE)))
+  TRUE
+}
+
 # ---- plotting helpers ------------------------------------------------------------------
 plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len,
                       manual_min, manual_max, log_transform = FALSE, custom_fill_label = "") {
@@ -89,13 +132,37 @@ plot_rmsx <- function(rmsx_long, interpolate, palette, step_size, sim_len,
     "RMSX (Å)"
   }
   
-  ggplot(rmsx_long, aes(Time_Point, Residue, fill = RMSF)) +
+  base_plot <- ggplot(rmsx_long, aes(Time_Point, Residue, fill = RMSF)) +
     geom_raster(interpolate = interpolate) +
     fill_scale +
     coord_cartesian(xlim = c(0, sim_len)) +
     theme_minimal() +
     theme(legend.position = "left") +
     labs(x = "Time (ns)", y = "Residue (Index)", fill = fill_label)
+
+  if ("Masked" %in% names(rmsx_long) && any(rmsx_long$Masked, na.rm = TRUE)) {
+    masked_tiles <- rmsx_long %>% filter(Masked)
+    base_plot <- base_plot +
+      ggpattern::geom_tile_pattern(
+        data = masked_tiles,
+        inherit.aes = FALSE,
+        aes(x = Time_Point, y = Residue, pattern = "Masked residues"),
+        fill = NA,
+        color = NA,
+        width = step_size,
+        height = 1,
+        pattern_fill = "black",
+        pattern_colour = "black",
+        pattern_alpha = 0.55,
+        pattern_angle = 45,
+        pattern_density = 0.30,
+        pattern_spacing = 0.02,
+        pattern_key_scale_factor = 0.6
+      ) +
+      ggpattern::scale_pattern_manual(values = c("Masked residues" = "stripe"), name = NULL)
+  }
+
+  base_plot
 }
 
 plot_rmsd <- function(rmsd) {
@@ -275,6 +342,22 @@ process_data_by_chain_id <- function(rmsx_raw, id, csv_path, interpolate, palett
   names(rmsx) <- c("Residue", centers)
   rmsx_long <- tidyr::pivot_longer(rmsx, cols = -Residue, names_to = "Time_Point", values_to = "RMSF")
   rmsx_long$Time_Point <- as.numeric(rmsx_long$Time_Point)
+
+  mask_data <- load_mask_metadata(csv_path)
+  if (!is.null(mask_data)) {
+    mask_chain <- mask_data %>%
+      filter(ChainID == as.character(id)) %>%
+      transmute(Residue = ResidueID, Masked = Masked)
+    if (nrow(mask_chain)) {
+      rmsx_long <- rmsx_long %>%
+        left_join(mask_chain, by = "Residue") %>%
+        mutate(Masked = if_else(is.na(Masked), FALSE, Masked))
+    } else {
+      rmsx_long$Masked <- FALSE
+    }
+  } else {
+    rmsx_long$Masked <- FALSE
+  }
   
   # Return both the heatmap, the long data, and the time grid info
   list(
@@ -565,6 +648,8 @@ compute_window_check_correlations <- function(rmsx_raw, chain_id, rmsd_data, rms
 main <- function() {
   args <- parse_args()
   rmsx_raw <- read_and_summarize_csv(args$csv_path)
+  mask_data <- load_mask_metadata(args$csv_path)
+  ensure_pattern_support(mask_data)
   
   if (isTRUE(args$log_transform)) {
     message("Log transform requested: assuming CSV already contains log-scaled values.")

@@ -61,6 +61,11 @@ set ::SPLINE     0
 # We'll store per-residue thickness driver into 'user2'
 set ::USERSCALE  1.0        ;# multiply 0..10 values
 set ::USEROFFSET 2.0        ;# add offset before clamp
+set ::MASK_OPACITY 0.30
+if {[info exists env(RMSX_VMD_MASK_OPACITY)] && $env(RMSX_VMD_MASK_OPACITY) ne ""} {
+    set ::MASK_OPACITY $env(RMSX_VMD_MASK_OPACITY)
+}
+set ::MASK_MATERIAL "Transparent"
 
 # Color pipeline (independent of thickness):
 # We'll color by 'user2' (can switch to Beta via hotkey if desired)
@@ -69,9 +74,20 @@ set ::COLMIN       0.0
 set ::COLMAX      10.0
 
 # Helper: apply only geometry
+proc getRepIndices {molid} {
+    set rep_ids {}
+    set numreps [molinfo $molid get numreps]
+    for {set repid 0} {$repid < $numreps} {incr repid} {
+        lappend rep_ids $repid
+    }
+    return $rep_ids
+}
+
 proc applyGeom {} {
     foreach molid $::molList {
-        mol modstyle 0 $molid $::REP $::THICK $::RES $::ASPECT $::SPLINE
+        foreach repid [getRepIndices $molid] {
+            mol modstyle $repid $molid $::REP $::THICK $::RES $::ASPECT $::SPLINE
+        }
     }
     puts [format {Geometry -> %s  THICK=%.2f  RES=%d  ASPECT=%.2f  SPLINE=%d} \
           $::REP $::THICK $::RES $::ASPECT $::SPLINE]
@@ -80,10 +96,109 @@ proc applyGeom {} {
 proc applyColor {} {
     if {$::COLMAX <= $::COLMIN} { set ::COLMAX [expr {$::COLMIN + 0.1}] }
     foreach molid $::molList {
-        mol modcolor 0 $molid $::COLORMETHOD
-        mol scaleminmax $molid 0 $::COLMIN $::COLMAX
+        foreach repid [getRepIndices $molid] {
+            mol modcolor $repid $molid $::COLORMETHOD
+            mol scaleminmax $molid $repid $::COLMIN $::COLMAX
+        }
     }
     puts [format {Color -> %s  range=[%0.2f..%0.2f]} $::COLORMETHOD $::COLMIN $::COLMAX]
+}
+
+proc maskValueIsTrue {value} {
+    set lowered [string tolower [string trim $value]]
+    return [expr {$lowered eq "1" || $lowered eq "true" || $lowered eq "yes" || $lowered eq "y" || $lowered eq "on"}]
+}
+
+proc loadMaskClauses {mask_csv_path} {
+    if {![file exists $mask_csv_path]} {
+        return {}
+    }
+
+    array unset chain_residues
+    set handle [open $mask_csv_path r]
+    gets $handle header_line
+
+    while {[gets $handle line] >= 0} {
+        if {[string trim $line] eq ""} {
+            continue
+        }
+        set fields [split $line ","]
+        if {[llength $fields] < 3} {
+            continue
+        }
+
+        set residue_id [string trim [lindex $fields 0]]
+        set chain_id [string trim [lindex $fields 1]]
+        set masked_flag [string trim [lindex $fields 2]]
+        if {$residue_id eq "" || ![maskValueIsTrue $masked_flag]} {
+            continue
+        }
+
+        if {[info exists chain_residues($chain_id)]} {
+            lappend chain_residues($chain_id) $residue_id
+        } else {
+            set chain_residues($chain_id) [list $residue_id]
+        }
+    }
+    close $handle
+
+    set clauses {}
+    foreach chain_id [array names chain_residues] {
+        set residue_ids [lsort -integer -unique $chain_residues($chain_id)]
+        if {[llength $residue_ids] == 0} {
+            continue
+        }
+        set residue_clause [join $residue_ids " "]
+        if {$chain_id eq ""} {
+            lappend clauses "resid $residue_clause"
+        } else {
+            lappend clauses "((segid $chain_id and resid $residue_clause) or (chain $chain_id and resid $residue_clause))"
+        }
+    }
+
+    return $clauses
+}
+
+proc configureMaskMaterial {} {
+    material change opacity $::MASK_MATERIAL $::MASK_OPACITY
+    material change ambient $::MASK_MATERIAL 0.35
+    material change diffuse $::MASK_MATERIAL 0.55
+    material change specular $::MASK_MATERIAL 0.05
+    material change shininess $::MASK_MATERIAL 0.03
+    material change mirror $::MASK_MATERIAL 0.00
+}
+
+proc applyMaskedTransparency {mask_csv_path} {
+    set mask_clauses [loadMaskClauses $mask_csv_path]
+    if {[llength $mask_clauses] == 0} {
+        return
+    }
+
+    set mask_selection [join $mask_clauses " or "]
+    configureMaskMaterial
+    catch {display depthsort on}
+
+    foreach molid $::molList {
+        if {[molinfo $molid get numreps] < 1} {
+            continue
+        }
+
+        set current_style [molinfo $molid get "{representation 0}"]
+        set current_selection [molinfo $molid get "{selection 0}"]
+        set current_color [molinfo $molid get "{color 0}"]
+
+        mol modselect 0 $molid "($current_selection) and not ($mask_selection)"
+        mol addrep $molid
+        set last_rep [expr {[molinfo $molid get numreps] - 1}]
+
+        mol modselect $last_rep $molid "($current_selection) and ($mask_selection)"
+        eval "mol modstyle $last_rep $molid $current_style"
+        mol modcolor $last_rep $molid $current_color
+        mol scaleminmax $molid $last_rep $::COLMIN $::COLMAX
+        mol modmaterial $last_rep $molid $::MASK_MATERIAL
+    }
+
+    puts [format {Masked transparency applied: %s} $mask_csv_path]
 }
 
 # --- NEW PROCEDURE ---
@@ -103,7 +218,7 @@ proc setGridSpacing {new_spacing} {
     }
     set spacing $new_spacing
     set g_current_offsets {}
-    puts [format {🎨 Positioning molecules (spacing = %0.2f Å)...} $spacing]
+    puts [format {Positioning molecules (spacing = %0.2f Å)} $spacing]
 
     set positions {}
     set count 0
@@ -146,10 +261,10 @@ if {[file exists $lastArg]} {
     set palette $lastArg
     if {$palette eq ""} { set palette "viridis" }
 }
-puts [format {🎨 Selected color palette: %s} $palette]
+puts [format {Palette: %s} $palette]
 
 set N [llength $pdbFiles]
-puts [format {📦 Loading %d pdb files...} $N]
+puts [format {Loading %d PDB files} $N]
 
 # ----------------------------------------------------------------------
 # Load and store molecule IDs
@@ -172,14 +287,14 @@ foreach pos [$sel0 get {x y z}] {
 }
 $sel0 delete
 set spacing [expr {$maxdist * 2.2}]
-puts [format {📏 Auto spacing = %0.2f Å} $spacing]
+puts [format {Auto spacing = %0.2f Å} $spacing]
 
 # Arrange initially along X and center:
 setGridSpacing $spacing
 
 # ----------------------------------------------------------------------
 # Per-residue average B-factors
-puts "🔬 Computing per-residue average B-factors..."
+puts "Computing per-residue average B-factors"
 set allAvgs {}
 set resIndexMap {}
 foreach molid $molList {
@@ -249,15 +364,15 @@ applyColor
 # ----------------------------------------------------------------------
 # Display style and palette handling
 if {[catch {color scale method $palette} err]} {
-    puts "⚠️ Could not apply palette '$palette' ($err). Falling back to viridis."
+    puts "Could not apply palette '$palette' ($err). Falling back to viridis."
     if {[catch {color scale method viridis}]} {
         color scale method BWR
-        puts "✔︎ Fallback palette: BWR"
+        puts "Fallback palette: BWR"
     } else {
-        puts "✔︎ Fallback palette: viridis"
+        puts "Fallback palette: viridis"
     }
 } else {
-    puts [format {✔︎ Palette '%s' applied successfully.} $palette]
+    puts [format {Palette applied: %s} $palette]
 }
 
 display projection Orthographic
@@ -270,7 +385,7 @@ stage location Off
 color Display Background white
 rotate x by 90
 
-puts "✅ Molecules arranged along X axis, centered at origin, colored by 'user2', and SIZE-modulated by 'user'."
+puts "Layout ready: X-axis centered, color=user2, size=user"
 
 # ===============================================================
 # rotateAllMols_3Dkeys.tcl
@@ -313,13 +428,12 @@ user add key {m} { rotateAllMolsY -5 }
 # Z-axis rotation
 user add key {j} { rotateAllMolsZ 5 }
 user add key {k} { rotateAllMolsZ -5 }
-puts "✅ 3D rotation hotkeys loaded:  u/i → ±X   n/m → ±Y   j/k → ±Z"
+puts {Hotkeys: u/i ±X, n/m ±Y, j/k ±Z, +/- spacing, [ and ] thickness, 9/0/_/; size, ,/. color range, c color toggle}
 
 # --- Grid spacing hotkeys ---
 user add key {=} { global spacing ; setGridSpacing [expr {$spacing + 2.0}] }
 user add key {+} { global spacing ; setGridSpacing [expr {$spacing + 2.0}] }
 user add key {-} { global spacing ; setGridSpacing [expr {max($spacing - 2.0, 0.5)}] }
-puts "✅ Grid spacing hotkeys loaded:  +/= increase,  - decrease"
 
 # --- Style hotkeys (decoupled) ---------------------------------------
 # Base thickness (geometry only): [  ]
@@ -343,5 +457,4 @@ user add key {c} {
     puts [format {Coloring by %s} $::COLORMETHOD]
 }
 
-puts {✅ Style hotkeys loaded:  [ and ] = base thickness (geom),  9/0/_/; = size scale/offset (geom),  ,/. = color range,  c = toggle User2/Beta color}
 # ----------------------------------------------------------------------

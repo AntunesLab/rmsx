@@ -111,6 +111,7 @@ from .output_safety import prepare_managed_output_dir
 
 _CITATION_NOTICE_PRINTED = False
 _CITATION_NOTICE_ENV_DISABLE = {"1", "true", "yes", "y", "on"}
+MASK_METADATA_FILENAME = "masked_residues.csv"
 _CITATION_NOTICE_TEXT = (
     "Please cite RMSX + Flipbook:\n"
     "Beruldsen, F., de Freitas, M.V. & Antunes, D.A. "
@@ -128,6 +129,177 @@ def maybe_print_citation_notice():
         return
     print(_CITATION_NOTICE_TEXT)
     _CITATION_NOTICE_PRINTED = True
+
+
+def get_mask_metadata_path(path_like):
+    path = Path(path_like)
+    if path.suffix:
+        return path.with_name(MASK_METADATA_FILENAME)
+    return path / MASK_METADATA_FILENAME
+
+
+def normalize_mask_selections(mask):
+    if mask is None:
+        return []
+    if isinstance(mask, str):
+        stripped = mask.strip()
+        return [stripped] if stripped else []
+    if isinstance(mask, (list, tuple, set)):
+        normalized = []
+        for item in mask:
+            if not isinstance(item, str):
+                raise TypeError("mask selections must be strings or lists of strings.")
+            stripped = item.strip()
+            if stripped:
+                normalized.append(stripped)
+        return normalized
+    raise TypeError("mask must be None, a selection string, or a list of selection strings.")
+
+
+def load_mask_metadata(mask_path, data_frame=None):
+    mask_path = Path(mask_path)
+    if mask_path.is_file():
+        mask_frame = pd.read_csv(mask_path)
+    elif data_frame is not None:
+        mask_frame = data_frame.loc[:, ["ResidueID", "ChainID"]].copy()
+        mask_frame["Masked"] = False
+    else:
+        raise FileNotFoundError(f"Mask metadata not found at {mask_path}")
+
+    required_columns = {"ResidueID", "ChainID", "Masked"}
+    missing_columns = required_columns.difference(mask_frame.columns)
+    if missing_columns:
+        raise ValueError(
+            f"Mask metadata at {mask_path} is missing required columns: "
+            f"{', '.join(sorted(missing_columns))}"
+        )
+
+    normalized = mask_frame.loc[:, ["ResidueID", "ChainID", "Masked"]].copy()
+    normalized["ResidueID"] = normalized["ResidueID"].astype(int)
+    normalized["ChainID"] = normalized["ChainID"].astype(str)
+    normalized["Masked"] = normalized["Masked"].astype(bool)
+    return normalized
+
+
+def build_mask_metadata(universe, selection_str, data_frame, mask=None, verbose=True):
+    metadata = data_frame.loc[:, ["ResidueID", "ChainID"]].copy()
+    metadata["ResidueID"] = metadata["ResidueID"].astype(int)
+    metadata["ChainID"] = metadata["ChainID"].astype(str)
+    metadata["Masked"] = False
+
+    mask_selections = normalize_mask_selections(mask)
+    if not mask_selections:
+        return metadata
+
+    available_pairs = {
+        (str(chain_id), int(residue_id))
+        for residue_id, chain_id in metadata.loc[:, ["ResidueID", "ChainID"]].itertuples(index=False, name=None)
+    }
+    masked_pairs = set()
+
+    for mask_selection in mask_selections:
+        try:
+            selected_atoms = universe.select_atoms(f"({selection_str}) and ({mask_selection})")
+        except Exception as exc:
+            raise ValueError(
+                f"Invalid mask selection '{mask_selection}'. RMSX mask expects raw MDAnalysis selection syntax."
+            ) from exc
+
+        selected_pairs = {
+            (str(residue.atoms[0].segid), int(residue.resid))
+            for residue in selected_atoms.residues
+            if len(residue.atoms) > 0 and (str(residue.atoms[0].segid), int(residue.resid)) in available_pairs
+        }
+        if not selected_pairs and verbose:
+            print(f"Warning: mask selection '{mask_selection}' did not match any analyzed residues.")
+        masked_pairs.update(selected_pairs)
+
+    if masked_pairs:
+        metadata["Masked"] = [
+            (str(chain_id), int(residue_id)) in masked_pairs
+            for residue_id, chain_id in metadata.loc[:, ["ResidueID", "ChainID"]].itertuples(index=False, name=None)
+        ]
+    return metadata
+
+
+def write_mask_metadata(metadata, output_path):
+    metadata.to_csv(get_mask_metadata_path(output_path), index=False)
+
+
+def _value_columns(data_frame):
+    return [column for column in data_frame.columns if column not in ("ResidueID", "ChainID")]
+
+
+def apply_mask_clipping(data_frame, mask_metadata, clip_bounds=None, allow_fully_masked=False):
+    value_columns = _value_columns(data_frame)
+    if not value_columns:
+        return data_frame.copy(), clip_bounds
+
+    clipped = data_frame.copy()
+    mask_values = mask_metadata["Masked"].astype(bool).to_numpy()
+    if mask_values.shape[0] != clipped.shape[0]:
+        raise ValueError("Mask metadata row count does not match analysis data row count.")
+
+    unmasked_values_mask = ~mask_values
+    if unmasked_values_mask.any():
+        if clip_bounds is None:
+            unmasked_values = clipped.loc[unmasked_values_mask, value_columns].to_numpy(dtype=float)
+            lower_bound = float(np.nanmin(unmasked_values))
+            upper_bound = float(np.nanmax(unmasked_values))
+            clip_bounds = (lower_bound, upper_bound)
+    elif clip_bounds is None:
+        if allow_fully_masked:
+            return clipped, None
+        raise ValueError(
+            "All analyzed residues are masked. Remove some masks or run a multi-chain analysis "
+            "that includes at least one unmasked chain."
+        )
+
+    if clip_bounds is None:
+        return clipped, None
+
+    lower_bound, upper_bound = clip_bounds
+    if mask_values.any():
+        clipped.loc[mask_values, value_columns] = clipped.loc[mask_values, value_columns].clip(
+            lower=lower_bound,
+            upper=upper_bound,
+            axis=1,
+        )
+    return clipped, clip_bounds
+
+
+def finalize_masked_csv(csv_path, clip_bounds, verbose=True):
+    csv_path = Path(csv_path)
+    data_frame = pd.read_csv(csv_path)
+    mask_metadata = load_mask_metadata(get_mask_metadata_path(csv_path), data_frame=data_frame)
+    clipped_frame, _ = apply_mask_clipping(
+        data_frame,
+        mask_metadata,
+        clip_bounds=clip_bounds,
+        allow_fully_masked=True,
+    )
+    clipped_frame.to_csv(csv_path, index=False)
+    update_all_pdb_bfactors(str(csv_path), silent=(not verbose), verbose=verbose)
+
+
+def write_combined_mask_metadata(chain_output_dirs, combined_dir):
+    metadata_frames = []
+    for chain_output_dir in chain_output_dirs:
+        mask_path = get_mask_metadata_path(chain_output_dir)
+        if mask_path.is_file():
+            metadata_frames.append(load_mask_metadata(mask_path))
+
+    if metadata_frames:
+        combined_metadata = pd.concat(metadata_frames, ignore_index=True)
+    else:
+        combined_metadata = pd.DataFrame(columns=["ResidueID", "ChainID", "Masked"])
+
+    combined_metadata.to_csv(get_mask_metadata_path(combined_dir), index=False)
+    return combined_metadata
+
+
+def has_masked_residues(mask):
+    return bool(normalize_mask_selections(mask))
 
 
 # def get_selection_string(analysis_type="protein", chain_sele=None):
@@ -197,6 +369,12 @@ def summarize_rmsx(rmsx_csv, n=3, print_output=True):
         DataFrame of the bottom N rows, with columns: [ResidueID, ChainID, TimeSlice, RMSX].
     """
     df = pd.read_csv(rmsx_csv)
+    mask_path = get_mask_metadata_path(rmsx_csv)
+    masked_count = 0
+    if mask_path.is_file():
+        mask_metadata = load_mask_metadata(mask_path, data_frame=df)
+        masked_count = int(mask_metadata["Masked"].sum())
+        df = df.loc[~mask_metadata["Masked"].to_numpy()].reset_index(drop=True)
 
     skip_cols = ['ResidueID', 'ChainID']
     numeric_cols = [c for c in df.columns if c not in skip_cols]
@@ -212,6 +390,14 @@ def summarize_rmsx(rmsx_csv, n=3, print_output=True):
     bottom_n_df = melted.nsmallest(n, 'RMSX')
 
     if print_output:
+        if masked_count:
+            print(
+                f"\nNote: excluded {masked_count} masked residue(s) from the RMSX summary "
+                f"for {Path(rmsx_csv).name}."
+            )
+            if df.empty:
+                print("All residues in this dataset are masked; no unmasked summary values are available.")
+                return top_n_df, bottom_n_df
         print(f"\n===== Top {n} RMSX values across all slices =====")
         for _, row in top_n_df.iterrows():
             print(
@@ -1102,6 +1288,15 @@ def create_r_plot(
         if verbose:
             print(f"Found R script at {r_script_path}.")
 
+        mask_required = False
+        mask_path = get_mask_metadata_path(rmsx_csv)
+        if mask_path.is_file():
+            try:
+                mask_metadata = load_mask_metadata(mask_path)
+                mask_required = bool(mask_metadata["Masked"].any())
+            except Exception:
+                mask_required = False
+
         cmd = [
             rscript_executable,
             r_script_path.as_posix(),
@@ -1124,6 +1319,12 @@ def create_r_plot(
 
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
+            if mask_required:
+                details = result.stderr.strip() or result.stdout.strip() or "Unknown R error."
+                raise RuntimeError(
+                    "Masked heatmap rendering failed. Masked plots require R 4.1+ with ggpattern support. "
+                    f"R reported: {details}"
+                )
             if verbose:
                 print("R script execution failed.")
                 if result.stdout.strip():
@@ -1142,6 +1343,8 @@ def create_r_plot(
             print(f"Error: Rscript executable not found: {rscript_executable}. "
                   "Please ensure R is installed and 'Rscript' is in your PATH.")
         return False
+    except RuntimeError:
+        raise
     except Exception as e:
         if verbose:
             print(f"An unexpected error occurred: {e}")
@@ -1363,13 +1566,19 @@ def compute_global_rmsx_min_max(csv_paths):
     all_vals = []
     for path in csv_paths:
         df = pd.read_csv(path)
+        mask_path = get_mask_metadata_path(path)
+        if mask_path.is_file():
+            mask_metadata = load_mask_metadata(mask_path, data_frame=df)
+            df = df.loc[~mask_metadata["Masked"].to_numpy()].reset_index(drop=True)
+        if df.empty:
+            continue
         numeric_cols = df.select_dtypes(include=[np.number]).columns
         for col in numeric_cols:
             if col not in ('ResidueID', 'ChainID'):
                 all_vals.append(df[col].values)
 
     if not all_vals:
-        return 0.0, 1.0
+        raise ValueError("No unmasked values were found across the provided CSV files.")
 
     all_vals = np.concatenate(all_vals)
     global_min = float(all_vals.min())
@@ -1399,7 +1608,10 @@ def run_rmsx(
         log_transform=False,
         full_backbone=True,
         window_check=False,
-        custom_fill_label=""
+        custom_fill_label="",
+        mask=None,
+        _defer_mask_clipping=False,
+        _allow_fully_masked=False,
 ):
     """
     Run the RMSX analysis on a specified trajectory range.
@@ -1555,7 +1767,30 @@ def run_rmsx(
 
     rmsx_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u, frames_used=adjusted_total_size,
                           manual_length_ns=manual_length_ns)
-    all_data.to_csv(rmsx_csv, index=False)
+
+    mask_metadata = build_mask_metadata(
+        universe=u,
+        selection_str=get_selection_string(
+            analysis_type=analysis_type,
+            chain_sele=chain_sele,
+            full_backbone=full_backbone,
+        ),
+        data_frame=all_data,
+        mask=mask,
+        verbose=verbose,
+    )
+
+    if _defer_mask_clipping:
+        clipped_data = all_data
+    else:
+        clipped_data, _ = apply_mask_clipping(
+            all_data,
+            mask_metadata,
+            allow_fully_masked=_allow_fully_masked,
+        )
+
+    clipped_data.to_csv(rmsx_csv, index=False)
+    write_mask_metadata(mask_metadata, rmsx_csv)
     if verbose:
         print(f"RMSX data saved to {rmsx_csv}")
 
@@ -1608,7 +1843,7 @@ def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=N
                    rscript_executable='Rscript', verbose=True, interpolate=False, triple=False, overwrite=False,
                    palette='viridis', start_frame=0, end_frame=None, sync_color_scale=False,
                    analysis_type="protein", manual_length_ns=None, summary_n=3, log_transform=False, full_backbone=False,
-                   window_check=False, custom_fill_label=""):
+                   window_check=False, custom_fill_label="", mask=None):
     """
     Perform RMSX analysis for all chains in the topology file.
 
@@ -1618,6 +1853,7 @@ def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=N
          Optional custom label to override the default fill label in the plots.
     """
     maybe_print_citation_notice()
+    mask_is_active = has_masked_residues(mask)
     if output_dir is None:
         base_name = os.path.splitext(os.path.basename(topology_file))[0]
         output_dir = os.path.join(os.getcwd(), f"{base_name}_rmsx")
@@ -1665,7 +1901,7 @@ def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=N
         if verbose:
             print(f"\nAnalyzing Chain {chain}...")
 
-        chain_make_plot = not sync_color_scale
+        chain_make_plot = (not sync_color_scale) and (not mask_is_active)
         _summary_tuple = run_rmsx(
             topology_file=topology_file,
             trajectory_file=trajectory_file,
@@ -1683,12 +1919,15 @@ def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=N
             end_frame=end_frame,
             make_plot=chain_make_plot,
             analysis_type=analysis_type,
-            summary_n=summary_n,
+            summary_n=None if mask_is_active else summary_n,
             manual_length_ns=manual_length_ns,
             log_transform=log_transform,
             full_backbone=full_backbone,
             window_check=window_check,
-            custom_fill_label=custom_fill_label  # Passing the custom label
+            custom_fill_label=custom_fill_label,  # Passing the custom label
+            mask=mask,
+            _defer_mask_clipping=mask_is_active,
+            _allow_fully_masked=mask_is_active,
         )
 
         chain_output_dir = os.path.join(output_dir, f"chain_{chain}_rmsx")
@@ -1698,20 +1937,66 @@ def all_chain_rmsx(topology_file, trajectory_file, output_dir=None, num_slices=N
         if possible_csv:
             csv_paths.append(str(possible_csv[0]))
 
-    if len(chain_ids) > 1:
+    if mask_is_active:
+        if verbose:
+            print("\nComputing global RMSX min and max across all unmasked residues...")
+        global_min, global_max = compute_global_rmsx_min_max(csv_paths)
+        if verbose:
+            print(f"Global RMSX range = [{global_min:.3f}, {global_max:.3f}]")
+
+        for csv_path in csv_paths:
+            finalize_masked_csv(csv_path, (global_min, global_max), verbose=verbose)
+
+        if summary_n is not None and isinstance(summary_n, int):
+            for csv_path in csv_paths:
+                chain_label = Path(csv_path).parent.name
+                if verbose:
+                    print(f"\nFinal masked summary for {chain_label}...")
+                summarize_rmsx(csv_path, n=summary_n, print_output=verbose)
+
+    if len(valid_chain_ids) > 1:
         combined_dir = os.path.join(output_dir, "combined")
         if verbose:
             print("\nCombining PDB files from all chains...")
         combine_pdb_files(combined_output_dirs, combined_dir, verbose=verbose)
+        if mask_is_active:
+            write_combined_mask_metadata(combined_output_dirs, combined_dir)
         if verbose:
             print("Combined RMSX analysis completed for all chains.")
     else:
-        single_chain_id = chain_ids[0]
+        single_chain_id = valid_chain_ids[0]
         combined_dir = os.path.join(output_dir, f"chain_{single_chain_id}_rmsx")
+        if mask_is_active:
+            write_combined_mask_metadata(combined_output_dirs, combined_dir)
         if verbose:
             print(f"Single-chain analysis completed. Using directory: {combined_dir}")
 
-    if sync_color_scale and csv_paths:
+    if mask_is_active and csv_paths:
+        if verbose:
+            if sync_color_scale:
+                print("Generating final masked plots with a fixed color scale...")
+            else:
+                print("Generating final masked plots...")
+
+        for csv_path in csv_paths:
+            csv_dir = Path(csv_path).parent
+            rmsd_csv = csv_dir / "rmsd.csv"
+            rmsf_csv = csv_dir / "rmsf.csv"
+            create_r_plot(
+                rmsx_csv=str(csv_path),
+                rmsd_csv=str(rmsd_csv),
+                rmsf_csv=str(rmsf_csv),
+                rscript_executable=rscript_executable,
+                interpolate=interpolate,
+                triple=triple,
+                palette=palette,
+                min_val=global_min if sync_color_scale else None,
+                max_val=global_max if sync_color_scale else None,
+                verbose=verbose,
+                log_transform=log_transform,
+                custom_fill_label=custom_fill_label,
+            )
+    elif sync_color_scale and csv_paths:
         if verbose:
             print("\nComputing global RMSX min and max across all chains...")
         global_min, global_max = compute_global_rmsx_min_max(csv_paths)
@@ -1854,7 +2139,8 @@ def run_rmsx_flipbook(
         full_backbone=True,         # <---- ADDED
         custom_fill_label="",
         viewer="chimerax",            # <---- NEW DEFAULT ARG
-        extra_commands=None
+        extra_commands=None,
+        mask=None,
 ):
     """
     Run RMSX analysis and generate a FlipBook visualization, syncing the color scale
@@ -1890,7 +2176,8 @@ def run_rmsx_flipbook(
         summary_n=summary_n,
         log_transform=log_transform,
         full_backbone=full_backbone,  # <---- MODIFIED
-        custom_fill_label=custom_fill_label  # Propagate the custom label
+        custom_fill_label=custom_fill_label,  # Propagate the custom label
+        mask=mask,
     )
     run_flipbook(
         directory=combined_dir,
@@ -1930,7 +2217,8 @@ def run_shift_flipbook(
         full_backbone=True,        # <---- ADDED
         custom_fill_label=shift_fill_text,
         viewer="chimerax",           # <---- NEW
-        extra_commands=None
+        extra_commands=None,
+        mask=None,
 ):
 
     """
@@ -1966,7 +2254,8 @@ def run_shift_flipbook(
         summary_n=summary_n,
         log_transform=log_transform,
         full_backbone=full_backbone,  # <---- ADDED
-        custom_fill_label=custom_fill_label
+        custom_fill_label=custom_fill_label,
+        mask=mask,
     )
     run_flipbook(
         directory=combined_dir,
@@ -2195,7 +2484,10 @@ def run_shift_map(
         log_transform=False,
         full_backbone=False,
         window_check=False,
-        custom_fill_label=shift_fill_text
+        custom_fill_label=shift_fill_text,
+        mask=None,
+        _defer_mask_clipping=False,
+        _allow_fully_masked=False,
 ):
     """
     Run the trajectory shift analysis on a specified trajectory range.
@@ -2294,7 +2586,30 @@ def run_shift_map(
 
     shift_csv = file_namer(chain_output_dir, trajectory_file, "csv", u=u, frames_used=adjusted_total_size,
                            manual_length_ns=manual_length_ns)
-    all_data.to_csv(shift_csv, index=False)
+
+    mask_metadata = build_mask_metadata(
+        universe=u,
+        selection_str=get_selection_string(
+            analysis_type=analysis_type,
+            chain_sele=chain_sele,
+            full_backbone=full_backbone,
+        ),
+        data_frame=all_data,
+        mask=mask,
+        verbose=verbose,
+    )
+
+    if _defer_mask_clipping:
+        clipped_data = all_data
+    else:
+        clipped_data, _ = apply_mask_clipping(
+            all_data,
+            mask_metadata,
+            allow_fully_masked=_allow_fully_masked,
+        )
+
+    clipped_data.to_csv(shift_csv, index=False)
+    write_mask_metadata(mask_metadata, shift_csv)
     if verbose:
         print(f"Shift map data saved to {shift_csv}")
 
@@ -2361,7 +2676,8 @@ def all_chain_shift_map(
         log_transform=False,
         full_backbone=False,
         window_check=False,
-        custom_fill_label=shift_fill_text  ###
+        custom_fill_label=shift_fill_text,  ###
+        mask=None
 ):
     """
     Perform shift map analysis for all chains in the topology file.
@@ -2372,6 +2688,7 @@ def all_chain_shift_map(
          Optional custom label to override the default fill label in the plots.
     """
     maybe_print_citation_notice()
+    mask_is_active = has_masked_residues(mask)
     if output_dir is None:
         base_name = os.path.splitext(os.path.basename(topology_file))[0]
         output_dir = os.path.join(os.getcwd(), f"{base_name}_shiftmap")
@@ -2434,14 +2751,17 @@ def all_chain_shift_map(
             palette=palette,
             start_frame=start_frame,
             end_frame=end_frame,
-            make_plot=True,
+            make_plot=not mask_is_active,
             analysis_type=analysis_type,
-            summary_n=summary_n,
+            summary_n=None if mask_is_active else summary_n,
             manual_length_ns=manual_length_ns,
             log_transform=log_transform,
             full_backbone=full_backbone,
             window_check=window_check,
-            custom_fill_label=custom_fill_label  # Passing the custom label
+            custom_fill_label=custom_fill_label,  # Passing the custom label
+            mask=mask,
+            _defer_mask_clipping=mask_is_active,
+            _allow_fully_masked=mask_is_active,
         )
 
         chain_output_dir = os.path.join(output_dir, f"chain_{chain}_shiftmap")
@@ -2451,20 +2771,66 @@ def all_chain_shift_map(
         if possible_csv:
             csv_paths.append(str(possible_csv[0]))
 
+    if mask_is_active:
+        if verbose:
+            print("\nComputing global shift map min and max across all unmasked residues...")
+        global_min, global_max = compute_global_rmsx_min_max(csv_paths)
+        if verbose:
+            print(f"Global shift map range = [{global_min:.3f}, {global_max:.3f}]")
+
+        for csv_path in csv_paths:
+            finalize_masked_csv(csv_path, (global_min, global_max), verbose=verbose)
+
+        if summary_n is not None and isinstance(summary_n, int):
+            for csv_path in csv_paths:
+                chain_label = Path(csv_path).parent.name
+                if verbose:
+                    print(f"\nFinal masked summary for {chain_label}...")
+                summarize_rmsx(csv_path, n=summary_n, print_output=verbose)
+
     if len(valid_chain_ids) > 1:
         combined_dir = os.path.join(output_dir, "combined")
         if verbose:
             print("\nCombining PDB files from all chains...")
         combine_pdb_files(combined_output_dirs, combined_dir, verbose=verbose)
+        if mask_is_active:
+            write_combined_mask_metadata(combined_output_dirs, combined_dir)
         if verbose:
             print("Combined shift map analysis completed for all chains.")
     else:
         single_chain_id = valid_chain_ids[0]
         combined_dir = os.path.join(output_dir, f"chain_{single_chain_id}_shiftmap")
+        if mask_is_active:
+            write_combined_mask_metadata(combined_output_dirs, combined_dir)
         if verbose:
             print(f"Single-chain analysis completed. Using directory: {combined_dir}")
 
-    if sync_color_scale and csv_paths:
+    if mask_is_active and csv_paths:
+        if verbose:
+            if sync_color_scale:
+                print("Generating final masked plots with a fixed color scale...")
+            else:
+                print("Generating final masked plots...")
+
+        for csv_path in csv_paths:
+            csv_dir = Path(csv_path).parent
+            rmsd_csv = csv_dir / "rmsd.csv"
+            rmsf_csv = csv_dir / "rmsf.csv"
+            create_r_plot(
+                rmsx_csv=str(csv_path),
+                rmsd_csv=str(rmsd_csv),
+                rmsf_csv=str(rmsf_csv),
+                rscript_executable=rscript_executable,
+                interpolate=interpolate,
+                triple=triple,
+                palette=palette,
+                min_val=global_min if sync_color_scale else None,
+                max_val=global_max if sync_color_scale else None,
+                verbose=verbose,
+                log_transform=log_transform,
+                custom_fill_label=custom_fill_label
+            )
+    elif sync_color_scale and csv_paths:
         if verbose:
             print("\nComputing global shift map min and max across all chains...")
         global_min, global_max = compute_global_rmsx_min_max(csv_paths)

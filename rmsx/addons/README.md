@@ -560,6 +560,44 @@ following the **exact** pattern of `all_chain_rmsx` and `run_rmsx_flipbook`, but
 * B-factors already set to **1 − lDDT**,
 * and legends labelled `"1 − lDDT (CA-only)"`.
 
+### Masking with `lDDT`
+
+`lDDT` can use the same residue-level masking flow as RMSX and shift maps. Pass raw
+MDAnalysis selection strings to `mask=` to exclude disordered regions from the
+unmasked min/max calculation while still keeping them visible in the CSV, heatmap,
+and Flipbook output.
+
+```python
+from rmsx.addons.lddt import run_lddt_map, run_lddt_flipbook
+
+run_lddt_map(
+    topology_file="prot.pdb",
+    trajectory_file="traj.dcd",
+    output_dir="lddt_masked",
+    num_slices=9,
+    chain_sele="A",
+    mask="segid A and resid 103:150",
+)
+
+run_lddt_flipbook(
+    topology_file="prot.pdb",
+    trajectory_file="traj.dcd",
+    output_dir="lddt_masked_flipbook",
+    num_slices=9,
+    mask=[
+        "segid A and resid 103:150",
+        "segid B and resid 12:25",
+    ],
+)
+```
+
+Masked `lDDT` runs behave like masked RMSX/shift runs:
+
+* masked residues are excluded from summaries and synced color-scale estimation,
+* masked rows are clipped against the unmasked floor/ceiling after any `log_transform`,
+* `masked_residues.csv` is written beside each chain CSV and in the combined Flipbook directory,
+* heatmaps use the same hatched overlay, and Flipbook viewers use the same transparency cues.
+
 ---
 
 ## 4. Adding Other Metrics Later
@@ -581,4 +619,3 @@ Once lDDT is in place, adding another per-residue metric is:
    * Reuse `file_namer`, `update_all_pdb_bfactors`, `calculate_rmsd`, `calculate_rmsf`, `create_r_plot`, and `run_flipbook`.
 
 Because RMSX (window-based), shift map (template-based), and 1 − lDDT (template-based “instability”) all follow the same skeleton, new metrics can plug into RMSX/Flipbook with very little extra plumbing and consistent visual semantics.
-

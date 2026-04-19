@@ -67,6 +67,20 @@ class TestNotebookSafety(unittest.TestCase):
         self.assertNotIn('output_dir = (test_dir / "example_uqb").as_posix()', source)
         self.assertNotIn('output_dir_multi = (test_dir / "protease").as_posix()', source)
 
+    def test_notebook_includes_advanced_masking_example(self) -> None:
+        notebook_path = Path("/Users/finn/Documents/GitHub/rmsx/RMSX_FlipBook_Quickstart.ipynb")
+        nb = json.loads(notebook_path.read_text(encoding="utf-8"))
+        source = "\n".join("".join(cell.get("source", [])) for cell in nb["cells"])
+
+        self.assertIn("## 7) Advanced Feature: Masking Selected Residues", source)
+        self.assertIn("protease_active_site_mask = [", source)
+        self.assertIn("segid A and resid 45:55", source)
+        self.assertIn("segid B and resid 45:55", source)
+        self.assertIn('output_dir_mask_demo = Path.cwd() / "rmsx_demo_outputs" / "protease_mask_example"', source)
+        self.assertIn("all_chain_rmsx(", source)
+        self.assertIn("mask=protease_active_site_mask", source)
+        self.assertIn("resave the topology/trajectory without that chain or region using **MDAnalysis**", source)
+
 
 if __name__ == "__main__":
     unittest.main()

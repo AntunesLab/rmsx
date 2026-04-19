@@ -73,6 +73,17 @@ run_rmsx(
 )
 ```
 
+You can optionally mask intrinsically disordered or unstable regions from the clipping range by passing raw MDAnalysis selections:
+
+```python
+run_rmsx(
+    ...,
+    mask="segid A and resid 204:260"
+)
+```
+
+Masked residues are clipped against the unmasked floor/ceiling, excluded from top/bottom summaries, shown with hatch overlays in heatmaps, and rendered transparently in Flipbook viewers.
+
 **What it does**:
 1. Reads frames from your trajectory, slices them, computes RMSX (slice-wise RMSF).
 2. Also calculates RMSD and RMSF for the full simulation (if `triple=True`).
@@ -144,6 +155,7 @@ run_rmsx_flipbook(
 
 ### 6. Additional Notes
 - **First Runs** R takes some time to download all the required packages the first time the program is run. This only happens once. 
+- **Masked Heatmaps**: Patterned masked heatmaps use `ggpattern` and require **R 4.1+**.
 - **Bundled Demo Inputs**: The Quick Start notebook looks for demo files inside the installed `rmsx` package first, then falls back to repo-style `test_files` folders if you are running from source.
 - **Notebook Demo Outputs**: The Quick Start notebook writes demo results into `rmsx_demo_outputs` next to the notebook so packaged demo files stay read-only.
 - **Chain IDs**: If your PDB has chain “A” or “B”, but `chain_sele="C"` is passed, you’ll see errors or zero B-factors. Ensure the chain ID matches.

@@ -48,11 +48,15 @@ import MDAnalysis as mda
 from MDAnalysis.lib.distances import distance_array
 
 from ..core import (
+    apply_mask_clipping,
+    build_mask_metadata,
     get_selection_string,
+    has_masked_residues,
     initialize_environment,
     setup_directory,
     prepare_managed_output_dir,
     file_namer,
+    finalize_masked_csv,
     calculate_rmsd,
     calculate_rmsf,
     update_all_pdb_bfactors,
@@ -60,6 +64,8 @@ from ..core import (
     summarize_rmsx,
     compute_global_rmsx_min_max,
     combine_pdb_files,
+    write_combined_mask_metadata,
+    write_mask_metadata,
 )
 from ..flipbook import run_flipbook
 
@@ -351,7 +357,10 @@ def run_lddt_map(
     log_transform: bool = False,
     inclusion_radius: float = 15.0,
     thresholds: Iterable[float] = (0.5, 1.0, 2.0, 4.0),
-    custom_fill_label: str = "Instability\n(1 − lDDT)"
+    custom_fill_label: str = "Instability\n(1 − lDDT)",
+    mask=None,
+    _defer_mask_clipping: bool = False,
+    _allow_fully_masked: bool = False,
 ):
     """
     High-level driver for per-residue lDDT maps.
@@ -468,7 +477,30 @@ def run_lddt_map(
         manual_length_ns=manual_length_ns,
         prefix="lddt",
     )
-    all_data.to_csv(lddt_csv, index=False)
+
+    mask_metadata = build_mask_metadata(
+        universe=u,
+        selection_str=get_selection_string(
+            analysis_type=analysis_type,
+            chain_sele=chain_sele,
+            full_backbone=False,
+        ),
+        data_frame=all_data,
+        mask=mask,
+        verbose=verbose,
+    )
+
+    if _defer_mask_clipping:
+        clipped_data = all_data
+    else:
+        clipped_data, _ = apply_mask_clipping(
+            all_data,
+            mask_metadata,
+            allow_fully_masked=_allow_fully_masked,
+        )
+
+    clipped_data.to_csv(lddt_csv, index=False)
+    write_mask_metadata(mask_metadata, lddt_csv)
     if verbose:
         print(f"lDDT (stored as 1 − lDDT) data saved to {lddt_csv}")
 
@@ -555,6 +587,7 @@ def all_chain_lddt_map(
     inclusion_radius: float = 15.0,
     thresholds: Iterable[float] = (0.5, 1.0, 2.0, 4.0),
     custom_fill_label: str = "Instability\n(1 − lDDT)",
+    mask=None,
 ) -> str:
     """
     Perform lDDT map analysis for all chains in the topology file.
@@ -573,6 +606,7 @@ def all_chain_lddt_map(
     combined_dir : str
         Directory containing combined PDBs (for Flipbook).
     """
+    mask_is_active = has_masked_residues(mask)
     if output_dir is None:
         base_name = os.path.splitext(os.path.basename(topology_file))[0]
         output_dir = os.path.join(os.getcwd(), f"{base_name}_lddtmap")
@@ -595,7 +629,7 @@ def all_chain_lddt_map(
         if verbose:
             print(f"\nAnalyzing Chain {chain}...")
 
-        chain_make_plot = not sync_color_scale
+        chain_make_plot = (not sync_color_scale) and (not mask_is_active)
         _summary_tuple = run_lddt_map(
             topology_file=topology_file,
             trajectory_file=trajectory_file,
@@ -613,12 +647,15 @@ def all_chain_lddt_map(
             end_frame=end_frame,
             make_plot=chain_make_plot,
             analysis_type=analysis_type,
-            summary_n=summary_n,
+            summary_n=None if mask_is_active else summary_n,
             manual_length_ns=manual_length_ns,
             log_transform=log_transform,
             inclusion_radius=inclusion_radius,
             thresholds=thresholds,
             custom_fill_label=custom_fill_label,
+            mask=mask,
+            _defer_mask_clipping=mask_is_active,
+            _allow_fully_masked=mask_is_active,
         )
 
         chain_output_dir = os.path.join(output_dir, f"chain_{chain}_lddtmap")
@@ -628,22 +665,69 @@ def all_chain_lddt_map(
         if possible_csv:
             csv_paths.append(str(possible_csv[0]))
 
+    if mask_is_active:
+        if verbose:
+            print("\nComputing global (1 − lDDT) min and max across all unmasked residues...")
+        global_min, global_max = compute_global_rmsx_min_max(csv_paths)
+        if verbose:
+            print(f"Global (1 − lDDT) range = [{global_min:.3f}, {global_max:.3f}]")
+
+        for csv_path in csv_paths:
+            finalize_masked_csv(csv_path, (global_min, global_max), verbose=verbose)
+
+        if summary_n is not None and isinstance(summary_n, int):
+            for csv_path in csv_paths:
+                chain_label = Path(csv_path).parent.name
+                if verbose:
+                    print(f"\nFinal masked summary for {chain_label}...")
+                summarize_rmsx(csv_path, n=summary_n, print_output=verbose)
+
     # Combine PDBs across chains (for multi-chain Flipbook)
     if len(chain_ids) > 1:
         combined_dir = os.path.join(output_dir, "combined")
         if verbose:
             print("\nCombining PDB files from all chains...")
         combine_pdb_files(combined_output_dirs, combined_dir, verbose=verbose)
+        if mask_is_active:
+            write_combined_mask_metadata(combined_output_dirs, combined_dir)
         if verbose:
             print("Combined lDDT analysis completed for all chains.")
     else:
         single_chain_id = chain_ids[0]
         combined_dir = os.path.join(output_dir, f"chain_{single_chain_id}_lddtmap")
+        if mask_is_active:
+            write_combined_mask_metadata(combined_output_dirs, combined_dir)
         if verbose:
             print(f"Single-chain lDDT analysis completed. Using directory: {combined_dir}")
 
     # Optional global color scale sync
-    if sync_color_scale and csv_paths:
+    if mask_is_active and csv_paths:
+        if verbose:
+            if sync_color_scale:
+                print("Generating final masked (1 − lDDT) plots with a fixed color scale...")
+            else:
+                print("Generating final masked (1 − lDDT) plots...")
+
+        for csv_path in csv_paths:
+            csv_dir = Path(csv_path).parent
+            rmsd_csv = csv_dir / "rmsd.csv"
+            rmsf_csv = csv_dir / "rmsf.csv"
+            create_r_plot(
+                rmsx_csv=str(csv_path),
+                rmsd_csv=str(rmsd_csv),
+                rmsf_csv=str(rmsf_csv),
+                rscript_executable=rscript_executable,
+                interpolate=interpolate,
+                triple=triple,
+                palette=palette,
+                min_val=global_min if sync_color_scale else None,
+                max_val=global_max if sync_color_scale else None,
+                verbose=verbose,
+                log_transform=log_transform,
+                custom_fill_label=custom_fill_label,
+            )
+
+    elif sync_color_scale and csv_paths:
         if verbose:
             print("\nComputing global (1 − lDDT) min and max across all chains...")
         global_min, global_max = compute_global_rmsx_min_max(csv_paths)
@@ -704,6 +788,7 @@ def run_lddt_flipbook(
     custom_fill_label: str = "Instability\n(1 − lDDT)",
     viewer: str = "chimerax",
     extra_commands: Optional[Iterable[str]] = None,
+    mask=None,
 ):
     """
     Run lDDT analysis and generate a Flipbook visualization, syncing the
@@ -746,6 +831,7 @@ def run_lddt_flipbook(
         inclusion_radius=inclusion_radius,
         thresholds=thresholds,
         custom_fill_label=custom_fill_label,
+        mask=mask,
     )
 
     run_flipbook(

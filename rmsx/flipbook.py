@@ -51,7 +51,9 @@ import subprocess
 import re
 import platform
 import shutil
+import csv
 from pathlib import Path
+from collections import defaultdict
 
 try:
     import pty  # type: ignore[attr-defined]
@@ -108,6 +110,10 @@ COLOR_PALETTES = {
         "#BE2102", "#7A0403"
     ]
 }
+
+MASK_METADATA_FILENAME = "masked_residues.csv"
+MASK_TRANSPARENCY_PERCENT = 70
+VMD_MASK_OPACITY = 0.30
 
 # --------------------------- ChimeraX discovery ---------------------------
 
@@ -279,6 +285,112 @@ def natural_sort_key(s):
     return [int(t) if t.isdigit() else t.lower() for t in re.split(r'(\d+)', s)]
 
 
+def _parse_mask_bool(value):
+    return str(value).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _load_masked_residue_map(directory):
+    mask_path = Path(directory) / MASK_METADATA_FILENAME
+    if not mask_path.is_file():
+        return {}
+
+    masked_map = defaultdict(set)
+    with mask_path.open(newline="", encoding="utf-8") as handle:
+        reader = csv.DictReader(handle)
+        for row in reader:
+            if not _parse_mask_bool(row.get("Masked", "")):
+                continue
+            chain_id = str(row.get("ChainID", "")).strip()
+            residue_text = str(row.get("ResidueID", "")).strip()
+            if not residue_text:
+                continue
+            try:
+                residue_id = int(float(residue_text))
+            except ValueError:
+                continue
+            masked_map[chain_id].add(residue_id)
+    return {chain_id: sorted(residues) for chain_id, residues in masked_map.items()}
+
+
+def _build_pdb_chain_lookup(pdb_file_path):
+    chain_lookup = {}
+    with open(pdb_file_path, "r", encoding="utf-8") as handle:
+        for line in handle:
+            if not (line.startswith("ATOM") or line.startswith("HETATM")):
+                continue
+            chain_id = line[21].strip()
+            segid = line[72:76].strip()
+            if segid and segid not in chain_lookup:
+                chain_lookup[segid] = chain_id or segid
+            if chain_id and chain_id not in chain_lookup:
+                chain_lookup.setdefault(chain_id, chain_id)
+    return chain_lookup
+
+
+def _group_residue_ranges(residue_ids):
+    if not residue_ids:
+        return []
+    sorted_ids = sorted(set(int(residue_id) for residue_id in residue_ids))
+    ranges = []
+    start_id = sorted_ids[0]
+    end_id = sorted_ids[0]
+    for residue_id in sorted_ids[1:]:
+        if residue_id == end_id + 1:
+            end_id = residue_id
+            continue
+        ranges.append((start_id, end_id))
+        start_id = residue_id
+        end_id = residue_id
+    ranges.append((start_id, end_id))
+    return ranges
+
+
+def _format_residue_ranges(residue_ids):
+    range_strings = []
+    for start_id, end_id in _group_residue_ranges(residue_ids):
+        if start_id == end_id:
+            range_strings.append(str(start_id))
+        else:
+            range_strings.append(f"{start_id}-{end_id}")
+    return ",".join(range_strings)
+
+
+def _normalize_chimerax_chain_id(chain_id):
+    stripped = str(chain_id).strip()
+    if not stripped:
+        return ""
+    if len(stripped) == 1 and stripped.isalpha():
+        return stripped
+    if len(stripped) == 1 and stripped.isdigit():
+        return "X"
+    return "X"
+
+
+def _build_chimerax_mask_commands(directory, pdb_file_paths):
+    masked_residues = _load_masked_residue_map(directory)
+    if not masked_residues:
+        return []
+
+    chain_lookup = _build_pdb_chain_lookup(pdb_file_paths[0])
+    transparency_commands = []
+    for original_chain_id, residue_ids in sorted(masked_residues.items()):
+        if not residue_ids:
+            continue
+        pdb_chain_id = chain_lookup.get(original_chain_id, original_chain_id)
+        chimerax_chain_id = _normalize_chimerax_chain_id(pdb_chain_id)
+        residue_spec = _format_residue_ranges(residue_ids)
+        if not residue_spec:
+            continue
+        if chimerax_chain_id:
+            target_spec = f"/{chimerax_chain_id}:{residue_spec}"
+        else:
+            target_spec = f":{residue_spec}"
+        transparency_commands.append(
+            f"transparency {target_spec} {MASK_TRANSPARENCY_PERCENT} target r"
+        )
+    return transparency_commands
+
+
 # -------------------------------------------------------------------------
 # ------------------------- Flipbook MAIN FUNCTION -------------------------
 # -------------------------------------------------------------------------
@@ -304,6 +416,9 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
     pdb_files_sorted = sorted(pdb_files, key=natural_sort_key)
     pdb_file_paths = [os.path.join(directory, f) for f in pdb_files_sorted]
     num_models = len(pdb_file_paths)
+    mask_commands = _build_chimerax_mask_commands(directory, pdb_file_paths)
+    mask_metadata_path = Path(directory) / MASK_METADATA_FILENAME
+    has_mask_metadata = mask_metadata_path.is_file() and bool(_load_masked_residue_map(directory))
 
     if provided_min_bfactor is None or provided_max_bfactor is None:
         min_bfactor, max_bfactor = extract_bfactor_range(pdb_file_paths)
@@ -342,6 +457,10 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
         f"close #{axis_id}",
         f"save {directory}/rmsx_{palette}.png width 2000 height 1000 supersample 3 transparentBackground true"
     ]
+
+    if mask_commands:
+        insertion_index = default_commands.index("lighting soft")
+        default_commands[insertion_index:insertion_index] = mask_commands
 
     if extra_commands:
         if isinstance(extra_commands, str):
@@ -400,6 +519,9 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
             vmd_env = os.environ.copy()
             vmd_env["RMSX_VMD_MAIN"] = vmd_main
             vmd_env.setdefault("RMSX_VMD_THICKFIELD", "user")
+            if has_mask_metadata:
+                vmd_env["RMSX_VMD_MASK_FILE"] = str(mask_metadata_path)
+                vmd_env["RMSX_VMD_MASK_OPACITY"] = str(VMD_MASK_OPACITY)
             if pty is None:
                 # Windows (and some restricted environments) do not support PTYs.
                 # Fall back to a detached process without attaching to a pseudo-terminal.
