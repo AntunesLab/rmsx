@@ -23,4 +23,4 @@ where = ["."]
 include = ["rmsx*"]
 
 [tool.setuptools.package-data]
-rmsx = ["r_scripts/*.R", "commands.cxc", "vmd_scripts/*.tcl"]
+rmsx = ["r_scripts/*.R", "commands.cxc", "vmd_scripts/*.tcl", "test_files/*"]

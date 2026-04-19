@@ -24,7 +24,11 @@ If you'd like a guided overview of the method, watch the tutorial here:
 ### 2. Installation
 
 Once you have those installed, just download and run the [**Quick Start Guide Notebook**](https://github.com/AntunesLab/rmsx/raw/main/RMSX_FlipBook_Quickstart.ipynb)
-It will walk you through the process and allow you to try RMSX, Trajectory Maps, and Flipbook on your own trajectories or ones from our publication.
+It will walk you through the process and allow you to try RMSX, Trajectory Maps, and Flipbook on your own trajectories or bundled demo inputs from our publication.
+
+The packaged notebook flow now works like this:
+- Demo **inputs** are bundled inside the installed `rmsx` package.
+- Demo **outputs** are written to `./rmsx_demo_outputs` next to the notebook, not back into the packaged demo-data directory.
 
 1. **Clone this repository**:
    ```bash
@@ -140,6 +144,8 @@ run_rmsx_flipbook(
 
 ### 6. Additional Notes
 - **First Runs** R takes some time to download all the required packages the first time the program is run. This only happens once. 
+- **Bundled Demo Inputs**: The Quick Start notebook looks for demo files inside the installed `rmsx` package first, then falls back to repo-style `test_files` folders if you are running from source.
+- **Notebook Demo Outputs**: The Quick Start notebook writes demo results into `rmsx_demo_outputs` next to the notebook so packaged demo files stay read-only.
 - **Chain IDs**: If your PDB has chain “A” or “B”, but `chain_sele="C"` is passed, you’ll see errors or zero B-factors. Ensure the chain ID matches.
 - **ChimeraX**: [Download here](https://www.cgl.ucsf.edu/chimerax/download.html) if you’d like to visualize the flipbook.
 - **Jupyter Notebook Behavior**: If you call `run_rmsx_flipbook` inside a Jupyter cell, ChimeraX runs interactively. The next cell won’t run until you **close** ChimeraX (or run it in detached mode). 

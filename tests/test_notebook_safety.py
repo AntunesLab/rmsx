@@ -1,3 +1,4 @@
+import json
 import os
 import unittest
 from pathlib import Path
@@ -42,6 +43,29 @@ class TestNotebookSafety(unittest.TestCase):
 
         loader = os.path.join(os.path.dirname(flipbook.__file__), "vmd_scripts", "wait_to_load.tcl")
         self.assertTrue(os.path.exists(loader))
+
+    def test_packaged_demo_inputs_exist_next_to_module(self) -> None:
+        import rmsx
+
+        pkg_dir = Path(rmsx.__file__).resolve().parent
+        demo_dir = pkg_dir / "test_files"
+
+        self.assertTrue((demo_dir / "1UBQ.pdb").is_file())
+        self.assertTrue((demo_dir / "mon_sys.dcd").is_file())
+        self.assertTrue((demo_dir / "protease_backbone.pdb").is_file())
+        self.assertTrue((demo_dir / "short_protease_backbone.dcd").is_file())
+
+    def test_notebook_uses_packaged_demo_inputs_and_external_output_root(self) -> None:
+        notebook_path = Path("/Users/finn/Documents/GitHub/rmsx/RMSX_FlipBook_Quickstart.ipynb")
+        nb = json.loads(notebook_path.read_text(encoding="utf-8"))
+        source = "\n".join("".join(cell.get("source", [])) for cell in nb["cells"])
+
+        self.assertIn('pkg_dir / "test_files"', source)
+        self.assertIn('demo_output_root = Path.cwd() / "rmsx_demo_outputs"', source)
+        self.assertIn('output_dir = (demo_output_root / "example_uqb").as_posix()', source)
+        self.assertIn('output_dir_multi = (demo_output_root / "protease").as_posix()', source)
+        self.assertNotIn('output_dir = (test_dir / "example_uqb").as_posix()', source)
+        self.assertNotIn('output_dir_multi = (test_dir / "protease").as_posix()', source)
 
 
 if __name__ == "__main__":
