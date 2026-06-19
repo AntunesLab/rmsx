@@ -1,6 +1,6 @@
 # RMSX and Flipbook: Simple-to-use, high-resolution mapping of molecular motions over time
 
-RMSX combines the features of RMSD and RMSF into a simple-to-understand and simple-to-implement tool for understanding how proteins move. It can work with simulation files from across MD simulation suites (e.g., GROMACS and NAMD, Amber etc.) and is much faster than other visualization methods while delivering publication-ready images out of the box. 
+RMSX and Flipbook are described in our *Scientific Reports* paper, “High resolution mapping of protein motions in time and space with RMSX and Flipbook” ([DOI: 10.1038/s41598-026-39869-7](https://doi.org/10.1038/s41598-026-39869-7)). RMSX combines features of RMSD and RMSF into a simple-to-understand and simple-to-implement approach for understanding how proteins move over time. It works with simulation files from common MD simulation suites, including GROMACS, NAMD, and AMBER, and is designed to generate high-resolution, publication-ready motion maps and Flipbook visualizations with minimal setup.
 
 
 ![RMSX and Flipbook workflow overview](RMSX_Flipbook_how_to_linkedin.gif)
