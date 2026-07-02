@@ -396,7 +396,7 @@ def _build_chimerax_mask_commands(directory, pdb_file_paths):
 # -------------------------------------------------------------------------
 
 def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=None,
-                 spacingFactor=1, extra_commands=None, viewer='chimerax',
+                 spacingFactor=None, extra_commands=None, viewer='chimerax',
                  molstar_output=None, molstar_manifest_output=None,
                  molstar_asset_mode='cdn', molstar_height=720,
                  molstar_camera_mode='orthographic'):
@@ -445,6 +445,8 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
 
     open_commands = " ; ".join([f"open '{path}'" for path in pdb_file_paths])
 
+    chimerax_spacing_factor = 1 if spacingFactor is None else spacingFactor
+
     default_commands = [
         "view",
         "define axis",
@@ -456,7 +458,7 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
         "graphics silhouettes true",
         "set bgColor white",
         color_command,
-        f"tile all columns {columns} spacingFactor {spacingFactor}",
+        f"tile all columns {columns} spacingFactor {chimerax_spacing_factor}",
         f"close #{axis_id}",
         f"save {directory}/rmsx_{palette}.png width 2000 height 1000 supersample 3 transparentBackground true"
     ]

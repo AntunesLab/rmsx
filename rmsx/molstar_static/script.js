@@ -54,7 +54,7 @@
     visible: new Set(),
     paletteName: "viridis",
     thickness: 1,
-    spacing: 1,
+    spacing: 0.8,
     columns: 1,
     rotation: { x: 90, y: 0, z: 0 },
     rotationMatrix: null,
@@ -97,7 +97,7 @@
           <details class="control-panel active" open data-panel="view" data-testid="molstar-panel-layout">
             <summary>View</summary>
             <div class="panel-grid">
-              <label>Spacing <input id="spacingRange" type="range" min="0" max="2.5" value="1" step="0.05" data-testid="molstar-spacing-range"><input id="spacingNumber" type="number" min="0" max="2.5" value="1" step="0.05" data-testid="molstar-spacing-number"></label>
+              <label>Spacing <input id="spacingRange" type="range" min="0.4" max="1.5" value="0.8" step="0.025" data-testid="molstar-spacing-range"><input id="spacingNumber" type="number" min="0.4" max="1.5" value="0.8" step="0.025" data-testid="molstar-spacing-number"></label>
               <label>Cols <input id="columnsNumber" type="number" min="1" value="1" step="1" data-testid="molstar-columns-number"></label>
               <div class="slice-visibility">
                 <div class="field-label">Slices</div>
@@ -662,15 +662,19 @@
   }
 
   function minSpacing() {
-    return Number(REPORT.flipbookReference?.minimumSpacingFactor ?? 0.1);
+    return Number(REPORT.flipbookReference?.minimumSpacingFactor ?? 0.4);
   }
 
   function maxSpacing() {
-    return Number(REPORT.flipbookReference?.maximumSpacingFactor ?? 2.5);
+    return Number(REPORT.flipbookReference?.maximumSpacingFactor ?? 1.5);
   }
 
   function defaultSpacing() {
-    return Number(REPORT.flipbookReference?.defaultSpacingFactor ?? 1);
+    return Number(REPORT.flipbookReference?.defaultSpacingFactor ?? 0.8);
+  }
+
+  function spacingStep() {
+    return Number(REPORT.flipbookReference?.spacingStep ?? REPORT.keyboardShortcuts?.spacingStep ?? 0.025);
   }
 
   function defaultTileColumns() {
@@ -2198,7 +2202,7 @@
       keyboard: {
         enabled: true,
         rotationStepDegrees: 5,
-        spacingStep: 0.05,
+        spacingStep: spacingStep(),
         thicknessStep: 0.05,
         bindings: ["u/i", "n/m", "j/k", "[/]", "-/=", ",/."],
         shortcutCount: state.keyboardShortcutCount,
@@ -2249,6 +2253,8 @@
     elements.spacingNumber.min = String(minSpacing());
     elements.spacingRange.max = String(maxSpacing());
     elements.spacingNumber.max = String(maxSpacing());
+    elements.spacingRange.step = String(spacingStep());
+    elements.spacingNumber.step = String(spacingStep());
     elements.colorMinNumber.min = String(REPORT.domain.min);
     elements.colorMinNumber.max = String(REPORT.domain.max);
     elements.colorMaxNumber.min = String(REPORT.domain.min);
@@ -2631,9 +2637,9 @@
         k: ["rotate-z-negative", () => addRotation("z", -5)],
         "[": ["thickness-increase", () => updateThickness(state.thickness + 0.05)],
         "]": ["thickness-decrease", () => updateThickness(state.thickness - 0.05)],
-        "-": ["spacing-decrease", () => updateSpacing(state.spacing - 0.05)],
-        "=": ["spacing-increase", () => updateSpacing(state.spacing + 0.05)],
-        "+": ["spacing-increase", () => updateSpacing(state.spacing + 0.05)],
+        "-": ["spacing-decrease", () => updateSpacing(state.spacing - spacingStep())],
+        "=": ["spacing-increase", () => updateSpacing(state.spacing + spacingStep())],
+        "+": ["spacing-increase", () => updateSpacing(state.spacing + spacingStep())],
         ",": ["color-domain-low-increase", () => updateColorDomain("min", state.colorMin + colorStep)],
         ".": ["color-domain-high-decrease", () => updateColorDomain("max", state.colorMax - colorStep)]
       };
