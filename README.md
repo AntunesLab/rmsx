@@ -10,6 +10,10 @@ RMSX combines the features of RMSD and RMSF into a simple-to-understand and simp
 If you'd like a guided overview of the method, watch the tutorial here:  
 [RMSX + Flipbook Method Walkthrough](https://www.youtube.com/watch?v=UoN0GQKHCsw)
 
+### New: Molstar Flipbook in Notebooks and Google Colab
+
+Flipbook now includes a Molstar viewer option for interactive 3D visualization directly inside Jupyter notebooks and Google Colab. This lets users inspect how proteins move across RMSX time slices without downloading generated PDB files, installing ChimeraX/VMD locally, or leaving the notebook environment. Use `viewer="molstar"` with `run_rmsx_flipbook(...)`, or call `write_molstar_flipbook(...)` on an existing folder of `slice_*_first_frame.pdb` outputs.
+
 ### 1. Prerequisites (click for install instructions) 
 - [**Git**](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git#:~:text=Installing%20on%20Windows&text=Just%20go%20to%20https%3A%2F%2F,to%20https%3A%2F%2Fgitforwindows.org.) Installed and added to your path (likely already done if you are using macOS or Linux)
 - [**Python**](https://www.python.org/) If not already installed (tested with 3.8+)
