@@ -56,16 +56,11 @@ class TestMolstarViewer(unittest.TestCase):
             self.assertEqual(manifest["summaries"]["slice_2.dcd"]["maxResidue"], "2")
             self.assertEqual(manifest["residues"][1]["values"]["slice_2.dcd"], 2.5)
             self.assertEqual(manifest["molstarRenderStyle"]["cameraMode"], "orthographic")
-            self.assertEqual(manifest["flipbookReference"]["defaultSpacingFactor"], 0.8)
-            self.assertEqual(manifest["flipbookReference"]["minimumSpacingFactor"], 0.4)
-            self.assertEqual(manifest["flipbookReference"]["maximumSpacingFactor"], 1.5)
-            self.assertEqual(manifest["flipbookReference"]["spacingStep"], 0.025)
 
             perspective_result = flipbook.run_flipbook(
                 str(tmp_path),
                 viewer="molstar",
                 palette="turbo",
-                spacingFactor=1,
                 molstar_output=tmp_path / "perspective.html",
                 molstar_manifest_output=tmp_path / "perspective.json",
                 molstar_camera_mode="perspective",
@@ -73,10 +68,6 @@ class TestMolstarViewer(unittest.TestCase):
             self.assertEqual(
                 perspective_result.manifest["molstarRenderStyle"]["cameraMode"],
                 "perspective",
-            )
-            self.assertEqual(
-                perspective_result.manifest["flipbookReference"]["defaultSpacingFactor"],
-                1.0,
             )
 
             with self.assertRaisesRegex(ValueError, "camera_mode"):
@@ -104,8 +95,6 @@ class TestMolstarViewer(unittest.TestCase):
         script = (ASSET_DIR / "script.js").read_text(encoding="utf-8")
         self.assertIn('const CAMERA_MODES = new Set(["orthographic", "perspective"])', script)
         self.assertIn('mode: state.cameraMode', script)
-        self.assertIn('min="0.4" max="1.5" value="0.8" step="0.025"', script)
-        self.assertIn("function spacingStep()", script)
 
     def test_top_level_molstar_helpers_are_lazy_exports(self) -> None:
         from rmsx import build_molstar_manifest as exported_builder

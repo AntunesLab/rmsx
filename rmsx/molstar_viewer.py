@@ -18,10 +18,6 @@ MASK_OPACITY = 0.30
 DEFAULT_RADIUS_MIN = 0.63
 DEFAULT_RADIUS_MAX = 3.18
 DEFAULT_THICKNESS_SCALE = 1.0
-DEFAULT_MOLSTAR_SPACING_FACTOR = 0.8
-MIN_MOLSTAR_SPACING_FACTOR = 0.4
-MAX_MOLSTAR_SPACING_FACTOR = 1.5
-MOLSTAR_SPACING_STEP = 0.025
 DEFAULT_TILE_PADDING_FACTOR = 1.55
 DEFAULT_HTML_NAME = "rmsx_molstar_flipbook.html"
 DEFAULT_MANIFEST_NAME = "rmsx_molstar_manifest.json"
@@ -322,10 +318,6 @@ def _safe_float(value: Any, default: float) -> float:
     return default if parsed is None else parsed
 
 
-def _clamp_float(value: float, minimum: float, maximum: float) -> float:
-    return min(maximum, max(minimum, value))
-
-
 def _normalize_camera_mode(camera_mode: str) -> str:
     normalized = str(camera_mode).strip().lower()
     if normalized not in CAMERA_MODES:
@@ -351,21 +343,16 @@ def _build_flipbook_reference(
     palette_colors: Iterable[str],
     spacing_factor: Any,
 ) -> Dict[str, Any]:
-    default_spacing = _clamp_float(
-        _safe_float(spacing_factor, DEFAULT_MOLSTAR_SPACING_FACTOR),
-        MIN_MOLSTAR_SPACING_FACTOR,
-        MAX_MOLSTAR_SPACING_FACTOR,
-    )
+    default_spacing = _safe_float(spacing_factor, 1.0)
     color_stops = _color_stops(domain, palette_colors)
     color_mapping = ":".join(f"{stop['bfactor']},{stop['color']}" for stop in color_stops)
     num_models = len(slices)
     return {
         "viewer": "molstar",
         "defaultColumns": num_models,
-        "minimumSpacingFactor": MIN_MOLSTAR_SPACING_FACTOR,
-        "maximumSpacingFactor": MAX_MOLSTAR_SPACING_FACTOR,
+        "minimumSpacingFactor": 0.0,
+        "maximumSpacingFactor": 2.5,
         "defaultSpacingFactor": default_spacing,
-        "spacingStep": MOLSTAR_SPACING_STEP,
         "tilePaddingFactor": DEFAULT_TILE_PADDING_FACTOR,
         "palette": palette_name,
         "colorStops": color_stops,
@@ -389,7 +376,7 @@ def build_molstar_manifest(
     palette: str = "viridis",
     min_bfactor: Optional[float] = None,
     max_bfactor: Optional[float] = None,
-    spacing_factor: Any = None,
+    spacing_factor: Any = 1,
     camera_mode: str = "orthographic",
     title: str = "RMSX Molstar Flipbook",
     mask_filename: str = "masked_residues.csv",
@@ -492,7 +479,7 @@ def build_molstar_manifest(
             "enabled": True,
             "source": "VMD Flipbook hotkey parity subset",
             "rotationStepDegrees": 5,
-            "spacingStep": MOLSTAR_SPACING_STEP,
+            "spacingStep": 0.05,
             "thicknessStep": 0.05,
         },
         "reportPayload": {
@@ -596,7 +583,7 @@ def write_molstar_flipbook(
     palette: str = "viridis",
     min_bfactor: Optional[float] = None,
     max_bfactor: Optional[float] = None,
-    spacing_factor: Any = None,
+    spacing_factor: Any = 1,
     camera_mode: str = "orthographic",
     output_html: Optional[Union[str, Path]] = None,
     output_manifest: Optional[Union[str, Path]] = None,

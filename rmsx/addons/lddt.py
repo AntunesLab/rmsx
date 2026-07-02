@@ -773,7 +773,7 @@ def run_lddt_flipbook(
     triple: bool = False,
     overwrite: bool = False,
     palette: str = "viridis",
-    spacingFactor: Optional[str] = None,
+    spacingFactor: str = "1",
     start_frame: int = 0,
     end_frame: Optional[int] = None,
     analysis_type: str = "protein",
