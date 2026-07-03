@@ -25,6 +25,7 @@
   const CDN_MOLSTAR_CSS = "https://cdn.jsdelivr.net/npm/molstar@5.4.2/build/viewer/molstar.css";
   const VISUAL_MIN = 0;
   const VISUAL_MAX = 1;
+  const DEFAULT_SPACING_STEP = 0.025;
   const incoming = JSON.parse(document.getElementById("app")?.dataset?.incoming || "{}");
   const visualizationConfig = incoming.visualization_config || {};
   const MANAGED_URL_PARAMS = [
@@ -97,7 +98,7 @@
           <details class="control-panel active" open data-panel="view" data-testid="molstar-panel-layout">
             <summary>View</summary>
             <div class="panel-grid">
-              <label>Spacing <input id="spacingRange" type="range" min="0" max="2.5" value="1" step="0.05" data-testid="molstar-spacing-range"><input id="spacingNumber" type="number" min="0" max="2.5" value="1" step="0.05" data-testid="molstar-spacing-number"></label>
+              <label>Spacing <input id="spacingRange" type="range" min="0" max="2.5" value="1" step="0.025" data-testid="molstar-spacing-range"><input id="spacingNumber" type="number" min="0" max="2.5" value="1" step="0.025" data-testid="molstar-spacing-number"></label>
               <label>Cols <input id="columnsNumber" type="number" min="1" value="1" step="1" data-testid="molstar-columns-number"></label>
               <div class="slice-visibility">
                 <div class="field-label">Slices</div>
@@ -671,6 +672,10 @@
 
   function defaultSpacing() {
     return Number(REPORT.flipbookReference?.defaultSpacingFactor ?? 1);
+  }
+
+  function spacingStep() {
+    return Number(REPORT.keyboardShortcuts?.spacingStep ?? DEFAULT_SPACING_STEP);
   }
 
   function defaultTileColumns() {
@@ -2198,7 +2203,7 @@
       keyboard: {
         enabled: true,
         rotationStepDegrees: 5,
-        spacingStep: 0.05,
+        spacingStep: spacingStep(),
         thicknessStep: 0.05,
         bindings: ["u/i", "n/m", "j/k", "[/]", "-/=", ",/."],
         shortcutCount: state.keyboardShortcutCount,
@@ -2249,6 +2254,8 @@
     elements.spacingNumber.min = String(minSpacing());
     elements.spacingRange.max = String(maxSpacing());
     elements.spacingNumber.max = String(maxSpacing());
+    elements.spacingRange.step = String(spacingStep());
+    elements.spacingNumber.step = String(spacingStep());
     elements.colorMinNumber.min = String(REPORT.domain.min);
     elements.colorMinNumber.max = String(REPORT.domain.max);
     elements.colorMaxNumber.min = String(REPORT.domain.min);
@@ -2394,7 +2401,7 @@
     updateMetrics();
     syncUrlState();
     if (state.layout === "tiled") {
-      queueGeometryUpdate(true);
+      queueGeometryUpdate(false);
     }
   }
 
@@ -2408,7 +2415,7 @@
     updateMetrics();
     syncUrlState();
     if (state.layout === "tiled") {
-      queueGeometryUpdate(true);
+      queueGeometryUpdate(false);
     }
   }
 
@@ -2631,9 +2638,9 @@
         k: ["rotate-z-negative", () => addRotation("z", -5)],
         "[": ["thickness-increase", () => updateThickness(state.thickness + 0.05)],
         "]": ["thickness-decrease", () => updateThickness(state.thickness - 0.05)],
-        "-": ["spacing-decrease", () => updateSpacing(state.spacing - 0.05)],
-        "=": ["spacing-increase", () => updateSpacing(state.spacing + 0.05)],
-        "+": ["spacing-increase", () => updateSpacing(state.spacing + 0.05)],
+        "-": ["spacing-decrease", () => updateSpacing(state.spacing - spacingStep())],
+        "=": ["spacing-increase", () => updateSpacing(state.spacing + spacingStep())],
+        "+": ["spacing-increase", () => updateSpacing(state.spacing + spacingStep())],
         ",": ["color-domain-low-increase", () => updateColorDomain("min", state.colorMin + colorStep)],
         ".": ["color-domain-high-decrease", () => updateColorDomain("max", state.colorMax - colorStep)]
       };

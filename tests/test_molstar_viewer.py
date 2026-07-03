@@ -56,6 +56,10 @@ class TestMolstarViewer(unittest.TestCase):
             self.assertEqual(manifest["summaries"]["slice_2.dcd"]["maxResidue"], "2")
             self.assertEqual(manifest["residues"][1]["values"]["slice_2.dcd"], 2.5)
             self.assertEqual(manifest["molstarRenderStyle"]["cameraMode"], "orthographic")
+            self.assertEqual(manifest["flipbookReference"]["minimumSpacingFactor"], 0.0)
+            self.assertEqual(manifest["flipbookReference"]["maximumSpacingFactor"], 2.5)
+            self.assertEqual(manifest["flipbookReference"]["defaultSpacingFactor"], 1.0)
+            self.assertEqual(manifest["keyboardShortcuts"]["spacingStep"], 0.025)
 
             perspective_result = flipbook.run_flipbook(
                 str(tmp_path),
@@ -95,6 +99,9 @@ class TestMolstarViewer(unittest.TestCase):
         script = (ASSET_DIR / "script.js").read_text(encoding="utf-8")
         self.assertIn('const CAMERA_MODES = new Set(["orthographic", "perspective"])', script)
         self.assertIn('mode: state.cameraMode', script)
+        self.assertIn('step="0.025"', script)
+        self.assertIn("spacingStep: spacingStep()", script)
+        self.assertNotIn("queueGeometryUpdate(true)", script)
 
     def test_top_level_molstar_helpers_are_lazy_exports(self) -> None:
         from rmsx import build_molstar_manifest as exported_builder

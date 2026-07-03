@@ -19,6 +19,7 @@ DEFAULT_RADIUS_MIN = 0.63
 DEFAULT_RADIUS_MAX = 3.18
 DEFAULT_THICKNESS_SCALE = 1.0
 DEFAULT_TILE_PADDING_FACTOR = 1.55
+DEFAULT_SPACING_STEP = 0.025
 DEFAULT_HTML_NAME = "rmsx_molstar_flipbook.html"
 DEFAULT_MANIFEST_NAME = "rmsx_molstar_manifest.json"
 SLICE_RE = re.compile(r"^slice_(\d+)_first_frame\.pdb$")
@@ -479,7 +480,7 @@ def build_molstar_manifest(
             "enabled": True,
             "source": "VMD Flipbook hotkey parity subset",
             "rotationStepDegrees": 5,
-            "spacingStep": 0.05,
+            "spacingStep": DEFAULT_SPACING_STEP,
             "thicknessStep": 0.05,
         },
         "reportPayload": {
