@@ -57,8 +57,9 @@ class TestMolstarViewer(unittest.TestCase):
             self.assertEqual(manifest["residues"][1]["values"]["slice_2.dcd"], 2.5)
             self.assertEqual(manifest["molstarRenderStyle"]["cameraMode"], "orthographic")
             self.assertEqual(manifest["flipbookReference"]["minimumSpacingFactor"], 0.0)
-            self.assertEqual(manifest["flipbookReference"]["maximumSpacingFactor"], 2.5)
+            self.assertEqual(manifest["flipbookReference"]["maximumSpacingFactor"], 1.5)
             self.assertEqual(manifest["flipbookReference"]["defaultSpacingFactor"], 1.0)
+            self.assertEqual(manifest["flipbookReference"]["tilePaddingFactor"], 1.0)
             self.assertEqual(manifest["keyboardShortcuts"]["spacingStep"], 0.025)
 
             perspective_result = flipbook.run_flipbook(

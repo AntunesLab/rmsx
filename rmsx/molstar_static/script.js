@@ -25,6 +25,7 @@
   const CDN_MOLSTAR_CSS = "https://cdn.jsdelivr.net/npm/molstar@5.4.2/build/viewer/molstar.css";
   const VISUAL_MIN = 0;
   const VISUAL_MAX = 1;
+  const DEFAULT_MAX_SPACING_FACTOR = 1.5;
   const DEFAULT_SPACING_STEP = 0.025;
   const incoming = JSON.parse(document.getElementById("app")?.dataset?.incoming || "{}");
   const visualizationConfig = incoming.visualization_config || {};
@@ -98,7 +99,7 @@
           <details class="control-panel active" open data-panel="view" data-testid="molstar-panel-layout">
             <summary>View</summary>
             <div class="panel-grid">
-              <label>Spacing <input id="spacingRange" type="range" min="0" max="2.5" value="1" step="0.025" data-testid="molstar-spacing-range"><input id="spacingNumber" type="number" min="0" max="2.5" value="1" step="0.025" data-testid="molstar-spacing-number"></label>
+              <label>Spacing <input id="spacingRange" type="range" min="0" max="1.5" value="1" step="0.025" data-testid="molstar-spacing-range"><input id="spacingNumber" type="number" min="0" max="1.5" value="1" step="0.025" data-testid="molstar-spacing-number"></label>
               <label>Cols <input id="columnsNumber" type="number" min="1" value="1" step="1" data-testid="molstar-columns-number"></label>
               <div class="slice-visibility">
                 <div class="field-label">Slices</div>
@@ -667,7 +668,7 @@
   }
 
   function maxSpacing() {
-    return Number(REPORT.flipbookReference?.maximumSpacingFactor ?? 2.5);
+    return Number(REPORT.flipbookReference?.maximumSpacingFactor ?? DEFAULT_MAX_SPACING_FACTOR);
   }
 
   function defaultSpacing() {

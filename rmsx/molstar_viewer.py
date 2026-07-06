@@ -18,7 +18,8 @@ MASK_OPACITY = 0.30
 DEFAULT_RADIUS_MIN = 0.63
 DEFAULT_RADIUS_MAX = 3.18
 DEFAULT_THICKNESS_SCALE = 1.0
-DEFAULT_TILE_PADDING_FACTOR = 1.55
+DEFAULT_TILE_PADDING_FACTOR = 1.0
+DEFAULT_MAX_SPACING_FACTOR = 1.5
 DEFAULT_SPACING_STEP = 0.025
 DEFAULT_HTML_NAME = "rmsx_molstar_flipbook.html"
 DEFAULT_MANIFEST_NAME = "rmsx_molstar_manifest.json"
@@ -352,7 +353,7 @@ def _build_flipbook_reference(
         "viewer": "molstar",
         "defaultColumns": num_models,
         "minimumSpacingFactor": 0.0,
-        "maximumSpacingFactor": 2.5,
+        "maximumSpacingFactor": DEFAULT_MAX_SPACING_FACTOR,
         "defaultSpacingFactor": default_spacing,
         "tilePaddingFactor": DEFAULT_TILE_PADDING_FACTOR,
         "palette": palette_name,
