@@ -97,6 +97,7 @@ class TestMolstarViewer(unittest.TestCase):
         self.assertTrue((ASSET_DIR / "script.js").is_file())
         self.assertTrue((ASSET_DIR / "vendor/molstar/5.4.2/molstar.js").is_file())
         self.assertTrue((ASSET_DIR / "vendor/molstar/5.4.2/molstar.css").is_file())
+        self.assertTrue((ASSET_DIR / "vendor/molstar/5.4.2/NOTICE.txt").is_file())
         script = (ASSET_DIR / "script.js").read_text(encoding="utf-8")
         self.assertIn('const CAMERA_MODES = new Set(["orthographic", "perspective"])', script)
         self.assertIn('mode: state.cameraMode', script)
