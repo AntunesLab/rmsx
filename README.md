@@ -1,33 +1,35 @@
 # RMSX and Flipbook: Simple-to-use, high-resolution mapping of molecular motions over time
 
-RMSX combines the features of RMSD and RMSF into a simple-to-understand and simple-to-implement tool for understanding how proteins move. It can work with simulation files from across MD simulation suites (e.g., GROMACS and NAMD, Amber etc.) and is much faster than other visualization methods while delivering publication-ready images out of the box. 
+RMSX and Flipbook are described in our *Scientific Reports* paper, “High resolution mapping of protein motions in time and space with RMSX and Flipbook” ([DOI: 10.1038/s41598-026-39869-7](https://doi.org/10.1038/s41598-026-39869-7)). RMSX combines features of RMSD and RMSF into a simple-to-understand and simple-to-implement approach for understanding how proteins move over time. It works with simulation files from common MD simulation suites, including GROMACS, NAMD, and AMBER, and is designed to generate high-resolution, publication-ready motion maps and Flipbook visualizations with minimal setup.
 
+### Quick Start
+
+**Run in Google Colab (fastest):**
+
+[![Open RMSX Molstar Colab Demo](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/AntunesLab/rmsx/blob/main/RMSX_Molstar_Colab_Demo.ipynb)
+
+The Colab demo runs the bundled examples and displays interactive Molstar Flipbooks directly in the notebook. No local molecular viewer is required.
+
+**Run locally:** download the [Quick Start Guide Notebook](https://github.com/AntunesLab/rmsx/raw/main/RMSX_FlipBook_Quickstart.ipynb), or clone this repository and run `pip install -e .`.
 
 ![RMSX and Flipbook workflow overview](RMSX_Flipbook_how_to_linkedin.gif)
-
-### Try RMSX + Molstar in Google Colab
-
-[![Open RMSX Molstar Colab Demo](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/AntunesLab/rmsx/blob/rmsx_molstar/RMSX_Molstar_Colab_Demo.ipynb)
-
-The Colab demo runs the bundled RMSX/Flipbook examples and displays interactive Molstar flipbooks directly in the notebook, so users can explore protein motion without installing ChimeraX, VMD, or a local notebook environment.
 
 ### Video Walkthrough
 
 If you'd like a guided overview of the method, watch the tutorial here:  
 [RMSX + Flipbook Method Walkthrough](https://www.youtube.com/watch?v=UoN0GQKHCsw)
 
-### New: Molstar Flipbook in Notebooks and Google Colab
+### Interactive Flipbooks in Notebooks
 
-Flipbook now includes a Molstar viewer option for interactive 3D visualization directly inside Jupyter notebooks and Google Colab. This lets users inspect how proteins move across RMSX time slices without downloading generated PDB files, installing ChimeraX/VMD locally, or leaving the notebook environment. Use `viewer="molstar"` with `run_rmsx_flipbook(...)`, or call `write_molstar_flipbook(...)` on an existing folder of `slice_*_first_frame.pdb` outputs.
+Flipbook includes a Molstar viewer for interactive 3D visualization inside Jupyter notebooks and Google Colab. Use `viewer="molstar"` with `run_rmsx_flipbook(...)`, or call `write_molstar_flipbook(...)` on an existing folder of `slice_*_first_frame.pdb` outputs. ChimeraX and VMD remain available as optional local viewers.
 
 ### 1. Prerequisites (click for install instructions) 
 - [**Git**](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git#:~:text=Installing%20on%20Windows&text=Just%20go%20to%20https%3A%2F%2F,to%20https%3A%2F%2Fgitforwindows.org.) Installed and added to your path (likely already done if you are using macOS or Linux)
 - [**Python**](https://www.python.org/) If not already installed (tested with 3.8+)
 - [**Jupyter Notebooks**](https://phoenixnap.com/kb/install-jupyter-notebook#:~:text=Install%20Jupyter%20Notebook%20on%20Linux,via%20pip) (Recommended) 
 - [**R**](https://cran.r-project.org/) installed and in your PATH (the `Rscript` command must be available).
-- [**ChimeraX**](https://www.cgl.ucsf.edu/chimerax/download.html) Simplest option if you plan to use the **Flipbook** 3D visualization.
-- _or:_
-- [**VMD**](https://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=VMD) Advanced **Flipbook** option for photorealistic rendering, depth cueing, occlusion, and ray tracing. 
+- **Molstar requires no separate installation** and is the simplest option for notebooks and Colab.
+- [**ChimeraX**](https://www.cgl.ucsf.edu/chimerax/download.html) or [**VMD**](https://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=VMD) are optional local viewers.
 - The RMSX code will attempt to install R packages like `ggplot2`, `viridis`, `dplyr`, etc., if they’re missing.
 
 
@@ -136,7 +138,7 @@ all_chain_rmsx(
 
 ### 5. Flipbook Visualization
 
-To **analyze** your system and **automatically generate** a 3D “flipbook” (multi-model PDB), use:
+To **analyze** your system and **automatically generate** an interactive 3D Flipbook, use:
 
 ```python
 from rmsx import run_rmsx_flipbook
@@ -162,7 +164,7 @@ run_rmsx_flipbook(
 
 1. Produces the RMSX heatmaps/plots just like `run_rmsx`.
 2. Writes multiple **PDB models** (one per time slice) into a single file.
-3. With `viewer="molstar"`, writes `rmsx_molstar_flipbook.html` and `rmsx_molstar_manifest.json`, then displays the interactive Molstar viewer directly in Jupyter/Colab notebook output.
+3. With `viewer="molstar"`, writes a standalone HTML viewer and displays the interactive Flipbook directly in Jupyter or Colab.
 4. With `viewer="chimerax"` or `viewer="vmd"`, launches the external desktop viewer if installed.
 
 If you already have a folder of `slice_*_first_frame.pdb` outputs, you can build the notebook viewer without rerunning RMSX:
@@ -177,52 +179,14 @@ write_molstar_flipbook(
 )
 ```
 
-### Optional SASA Flipbook
-
-RMSX can optionally calculate solvent accessible surface area (SASA) per residue per time slice using FreeSASA. FreeSASA is not required for normal RMSX or Flipbook runs.
-
-Install the optional SASA dependency:
-
-```bash
-pip install -e ".[sasa]"
-```
-
-Example:
-
-```python
-from rmsx import run_sasa_flipbook
-
-run_sasa_flipbook(
-    topology_file="protein.pdb",
-    trajectory_file="trajectory.dcd",
-    output_dir="sasa_flipbook_output",
-    num_slices=9,
-    chain_sele="A",
-    surface_selection="protein",
-    sasa_metric="sasa_delta_mean",
-    overwrite=True,
-)
-```
-
-`surface_selection` controls which atoms bury or expose the surface. For complexes, it is usually best to compute the surface using the full protein or complex (`surface_selection="protein"`) and report only the chain of interest with `chain_sele` or `report_selection`.
-Each SASA chain output directory includes `sasa_run_metadata.json`, which records the surface/report selections, atom counts, chain labels, and whether nonreported atoms still contribute to burial of the reported residues. Multi-chain runs also write `combined/sasa_combined_metadata.json` with a compact summary of the per-chain SASA context.
-
-Available SASA metrics:
-- `sasa_mean`: mean per-residue SASA within each slice.
-- `sasa_delta_mean`: per-residue slice mean minus that residue's first-slice mean.
-
-SASA values are reported in `A^2`. SASA is geometric accessibility to a probe, not direct water occupancy; make trajectories whole before SASA if periodic boundaries split the molecule. Absolute SASA is residue-size-biased, so delta SASA is often easier to interpret.
-
-`SASA_Flipbook_Test.ipynb` provides single-chain and multi-chain examples using the bundled test trajectories. It is a useful smoke test after installing the `sasa` extra.
-
 ### 6. Additional Notes
 - **First Runs** R takes some time to download all the required packages the first time the program is run. This only happens once. 
 - **Masked Heatmaps**: Patterned masked heatmaps use `ggpattern` and require **R 4.1+**.
 - **Bundled Demo Inputs**: The Quick Start notebook looks for demo files inside the installed `rmsx` package first, then falls back to repo-style `test_files` folders if you are running from source.
 - **Notebook Demo Outputs**: The Quick Start notebook writes demo results into `rmsx_demo_outputs` next to the notebook so packaged demo files stay read-only.
 - **Chain IDs**: If your PDB has chain “A” or “B”, but `chain_sele="C"` is passed, you’ll see errors or zero B-factors. Ensure the chain ID matches.
-- **ChimeraX**: [Download here](https://www.cgl.ucsf.edu/chimerax/download.html) if you’d like to visualize the flipbook in ChimeraX.
-- **Jupyter Notebook Behavior**: Use `viewer="molstar"` for an inline notebook/Colab viewer. If you use `viewer="chimerax"`, ChimeraX runs interactively and the next cell may not run until you **close** ChimeraX (or run it in detached mode). 
+- **ChimeraX**: [Download here](https://www.cgl.ucsf.edu/chimerax/download.html) if you’d like to visualize the Flipbook in ChimeraX.
+- **Jupyter Notebook Behavior**: Use `viewer="molstar"` for an inline notebook/Colab viewer. If you use `viewer="chimerax"`, the next cell may not run until you close ChimeraX.
 
 ### 7. Citation
 
