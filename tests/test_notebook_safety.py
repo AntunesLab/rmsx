@@ -86,7 +86,11 @@ class TestNotebookSafety(unittest.TestCase):
         notebook_path = Path("/Users/finn/Documents/GitHub/rmsx/RMSX_Molstar_Colab_Demo.ipynb")
         nb = json.loads(notebook_path.read_text(encoding="utf-8"))
         source = "\n".join("".join(cell.get("source", [])) for cell in nb["cells"])
-        source_lower = source.lower()
+        code_source_lower = "\n".join(
+            "".join(cell.get("source", [])).lower()
+            for cell in nb["cells"]
+            if cell.get("cell_type") == "code"
+        )
 
         self.assertIn("colab.research.google.com/github/AntunesLab/rmsx/blob/rmsx_molstar/RMSX_Molstar_Colab_Demo.ipynb", source)
         self.assertIn('GITHUB_REF = os.environ.get("RMSX_GITHUB_REF", "rmsx_molstar")', source)
@@ -101,10 +105,13 @@ class TestNotebookSafety(unittest.TestCase):
         self.assertNotIn("write_molstar_flipbook(", source)
         self.assertNotIn("single_images =", source)
         self.assertNotIn("display(", source)
-        self.assertNotIn('viewer="chimerax"', source_lower)
-        self.assertNotIn("viewer='chimerax'", source_lower)
-        self.assertNotIn('viewer="vmd"', source_lower)
-        self.assertNotIn("viewer='vmd'", source_lower)
+        self.assertIn("### Running Locally", source)
+        self.assertIn('viewer="chimerax"', source)
+        self.assertIn('viewer="vmd"', source)
+        self.assertNotIn('viewer="chimerax"', code_source_lower)
+        self.assertNotIn("viewer='chimerax'", code_source_lower)
+        self.assertNotIn('viewer="vmd"', code_source_lower)
+        self.assertNotIn("viewer='vmd'", code_source_lower)
 
     def test_molstar_colab_demo_code_cells_are_valid_python(self) -> None:
         notebook_path = Path("/Users/finn/Documents/GitHub/rmsx/RMSX_Molstar_Colab_Demo.ipynb")
