@@ -9,6 +9,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Mapping, Optional, Tuple, Union
 
+import numpy as np
+
 
 MOLSTAR_VERSION = "5.4.2"
 MOLSTAR_JS_URL = f"https://cdn.jsdelivr.net/npm/molstar@{MOLSTAR_VERSION}/build/viewer/molstar.js"
@@ -122,6 +124,213 @@ def _parse_float(text: str) -> Optional[float]:
     if not math.isfinite(value):
         return None
     return value
+
+
+def _pdb_orientation_coordinates(pdb_text: str) -> Tuple[List[Tuple[float, float, float]], str]:
+    ca_coordinates: List[Tuple[float, float, float]] = []
+    all_coordinates: List[Tuple[float, float, float]] = []
+
+    for line in pdb_text.splitlines():
+        if not line.startswith("ATOM"):
+            continue
+        padded = line.ljust(80)
+        if padded[16:17].strip() not in {"", "A"}:
+            continue
+        x = _parse_float(padded[30:38])
+        y = _parse_float(padded[38:46])
+        z = _parse_float(padded[46:54])
+        if x is None or y is None or z is None:
+            continue
+        coordinate = (x, y, z)
+        all_coordinates.append(coordinate)
+        if padded[12:16].strip() == "CA":
+            ca_coordinates.append(coordinate)
+
+    if len(ca_coordinates) >= 2:
+        return ca_coordinates, "alpha carbons"
+    return all_coordinates, "all atoms"
+
+
+def _dot(left: Tuple[float, float, float], right: Tuple[float, float, float]) -> float:
+    return sum(a * b for a, b in zip(left, right))
+
+
+def _cross(left: Tuple[float, float, float], right: Tuple[float, float, float]) -> Tuple[float, float, float]:
+    return (
+        left[1] * right[2] - left[2] * right[1],
+        left[2] * right[0] - left[0] * right[2],
+        left[0] * right[1] - left[1] * right[0],
+    )
+
+
+def _normalize(vector: Tuple[float, float, float]) -> Tuple[float, float, float]:
+    length = math.sqrt(_dot(vector, vector))
+    if length < 1e-12:
+        return (0.0, 0.0, 0.0)
+    return (vector[0] / length, vector[1] / length, vector[2] / length)
+
+
+def _canonical_axis_sign(
+    vector: Tuple[float, float, float],
+    hint: Optional[Tuple[float, float, float]] = None,
+) -> Tuple[float, float, float]:
+    hint_dot = _dot(vector, hint) if hint is not None else 0.0
+    if abs(hint_dot) > 1e-9:
+        return vector if hint_dot > 0 else (-vector[0], -vector[1], -vector[2])
+    largest_index = max(range(3), key=lambda index: abs(vector[index]))
+    return vector if vector[largest_index] >= 0 else (-vector[0], -vector[1], -vector[2])
+
+
+def _euler_from_rotation_matrix(matrix: List[List[float]]) -> Dict[str, float]:
+    y_angle = math.asin(max(-1.0, min(1.0, -matrix[2][0])))
+    cosine_y = math.cos(y_angle)
+    if abs(cosine_y) > 1e-8:
+        x_angle = math.atan2(matrix[2][1], matrix[2][2])
+        z_angle = math.atan2(matrix[1][0], matrix[0][0])
+    else:
+        x_angle = math.atan2(-matrix[1][2], matrix[1][1])
+        z_angle = 0.0
+
+    def degrees(value: float) -> float:
+        rounded = round(math.degrees(value), 6)
+        return 0.0 if abs(rounded) < 1e-9 else rounded
+
+    return {"x": degrees(x_angle), "y": degrees(y_angle), "z": degrees(z_angle)}
+
+
+def _automatic_orientation(pdb_text: str, scope: str = "in the first slice") -> Dict[str, Any]:
+    coordinates, selection = _pdb_orientation_coordinates(pdb_text)
+    selection_description = f"{selection} {scope}"
+    fallback_matrix = [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]]
+    fallback = {
+        "rotation": {"x": 90.0, "y": 0.0, "z": 0.0},
+        "matrix": fallback_matrix,
+        "source": "fixed fallback rotation",
+        "selection": selection_description,
+    }
+    if len(coordinates) < 2:
+        return fallback
+
+    coordinate_array = np.asarray(coordinates, dtype=float)
+    centered = coordinate_array - coordinate_array.mean(axis=0)
+    eigenvalues, eigenvectors = np.linalg.eigh(centered.T @ centered)
+    order = np.argsort(eigenvalues)[::-1]
+    if eigenvalues[order[0]] < 1e-10:
+        return fallback
+
+    sequence_hint = tuple(coordinates[-1][index] - coordinates[0][index] for index in range(3))
+    major_vector = tuple(float(value) for value in eigenvectors[:, order[0]])
+    secondary_vector = tuple(float(value) for value in eigenvectors[:, order[1]])
+    major_axis = _canonical_axis_sign(_normalize(major_vector), sequence_hint)
+    secondary_axis = _canonical_axis_sign(_normalize(secondary_vector))
+    depth_axis = _normalize(_cross(major_axis, secondary_axis))
+    if _dot(depth_axis, depth_axis) < 1e-10:
+        return fallback
+    secondary_axis = _normalize(_cross(depth_axis, major_axis))
+    matrix = [list(major_axis), list(secondary_axis), list(depth_axis)]
+    rounded_matrix = [[round(value, 9) for value in row] for row in matrix]
+    return {
+        "rotation": _euler_from_rotation_matrix(matrix),
+        "matrix": rounded_matrix,
+        "source": "principal-axis orientation",
+        "selection": selection_description,
+    }
+
+
+def _ca_coordinates_by_residue(pdb_text: str) -> Dict[str, Tuple[float, float, float]]:
+    coordinates: Dict[str, Tuple[float, float, float]] = {}
+    for line in pdb_text.splitlines():
+        if not line.startswith("ATOM"):
+            continue
+        padded = line.ljust(80)
+        if padded[12:16].strip() != "CA" or padded[16:17].strip() not in {"", "A"}:
+            continue
+        x = _parse_float(padded[30:38])
+        y = _parse_float(padded[38:46])
+        z = _parse_float(padded[46:54])
+        if x is None or y is None or z is None:
+            continue
+        chain_id = padded[21:22].strip() or padded[72:76].strip()
+        residue_id = (padded[22:26].strip() + padded[26:27].strip()).strip()
+        coordinates[_residue_key(chain_id, residue_id)] = (x, y, z)
+    return coordinates
+
+
+def _rigid_fit(
+    mobile: List[Tuple[float, float, float]],
+    reference: List[Tuple[float, float, float]],
+) -> Tuple[List[List[float]], Tuple[float, float, float], Tuple[float, float, float]]:
+    mobile_array = np.asarray(mobile, dtype=float)
+    reference_array = np.asarray(reference, dtype=float)
+    mobile_center_array = mobile_array.mean(axis=0)
+    reference_center_array = reference_array.mean(axis=0)
+    covariance = (mobile_array - mobile_center_array).T @ (reference_array - reference_center_array)
+    left, _, right_transpose = np.linalg.svd(covariance)
+    rotation = right_transpose.T @ left.T
+    if np.linalg.det(rotation) < 0:
+        right_transpose[-1, :] *= -1
+        rotation = right_transpose.T @ left.T
+
+    mobile_center = tuple(float(value) for value in mobile_center_array)
+    reference_center = tuple(float(value) for value in reference_center_array)
+    return rotation.tolist(), mobile_center, reference_center
+
+
+def _transform_pdb_coordinates(
+    pdb_text: str,
+    rotation: List[List[float]],
+    mobile_center: Tuple[float, float, float],
+    reference_center: Tuple[float, float, float],
+) -> str:
+    transformed_lines: List[str] = []
+    for line in pdb_text.splitlines():
+        if not (line.startswith("ATOM") or line.startswith("HETATM")):
+            transformed_lines.append(line)
+            continue
+        padded = line.ljust(80)
+        coordinate = tuple(_parse_float(padded[start:end]) for start, end in ((30, 38), (38, 46), (46, 54)))
+        if any(value is None for value in coordinate):
+            transformed_lines.append(line)
+            continue
+        centered = tuple(float(coordinate[index]) - mobile_center[index] for index in range(3))
+        transformed = [
+            reference_center[row] + sum(rotation[row][column] * centered[column] for column in range(3))
+            for row in range(3)
+        ]
+        coordinate_text = "".join(f"{value:8.3f}" for value in transformed)
+        transformed_lines.append(f"{padded[:30]}{coordinate_text}{padded[54:]}".rstrip())
+    return "\n".join(transformed_lines) + ("\n" if pdb_text.endswith("\n") else "")
+
+
+def _align_slices_to_reference(slices: List[Dict[str, Any]]) -> Dict[str, Any]:
+    reference_coordinates = _ca_coordinates_by_residue(slices[0]["pdb"])
+    aligned_slices = 1
+    skipped_slices: List[int] = []
+
+    for slice_entry in slices[1:]:
+        mobile_coordinates = _ca_coordinates_by_residue(slice_entry["pdb"])
+        common_keys = [key for key in reference_coordinates if key in mobile_coordinates]
+        if len(common_keys) < 3:
+            skipped_slices.append(int(slice_entry["index"]))
+            continue
+        mobile = [mobile_coordinates[key] for key in common_keys]
+        reference = [reference_coordinates[key] for key in common_keys]
+        rotation, mobile_center, reference_center = _rigid_fit(mobile, reference)
+        slice_entry["pdb"] = _transform_pdb_coordinates(
+            slice_entry["pdb"],
+            rotation,
+            mobile_center,
+            reference_center,
+        )
+        aligned_slices += 1
+
+    return {
+        "mode": "rigid-body least-squares fit to the first slice",
+        "selection": "common alpha carbons",
+        "referenceSlice": int(slices[0]["index"]),
+        "alignedSlices": aligned_slices,
+        "skippedSlices": skipped_slices,
+    }
 
 
 def _residue_key(chain_id: str, residue_id: str) -> str:
@@ -392,6 +601,11 @@ def build_molstar_manifest(
     normalized_camera_mode = _normalize_camera_mode(camera_mode)
 
     slices, residues, observed_domain, summaries, chain_aliases = _read_slices_and_residues(directory_path)
+    alignment = _align_slices_to_reference(slices)
+    orientation = _automatic_orientation(
+        "\n".join(slice_entry["pdb"] for slice_entry in slices),
+        scope="across aligned slices",
+    )
     domain_min = observed_domain["min"] if min_bfactor is None else min(observed_domain["min"], float(min_bfactor))
     domain_max = observed_domain["max"] if max_bfactor is None else max(observed_domain["max"], float(max_bfactor))
     domain = {"min": domain_min, "max": domain_max}
@@ -434,12 +648,15 @@ def build_molstar_manifest(
             "delayStepMs": 50,
             "delayUrlParam": "delayMs",
         },
+        "alignmentModel": alignment,
         "rotationModel": {
-            "mode": "per-slice local coordinate transform",
+            "mode": "shared principal-axis orientation with per-slice local pivots",
             "pivot": "geometric center of each full slice before mask splitting",
             "layoutOrder": "rotate around local center, then place that center on a shared Flipbook slot anchor plus tile offset",
-            "defaultRotation": {"x": 90, "y": 0, "z": 0},
-            "defaultRotationSource": "ChimeraX Flipbook command: turn x 90",
+            "defaultRotation": orientation["rotation"],
+            "defaultRotationMatrix": orientation["matrix"],
+            "defaultRotationSource": orientation["source"],
+            "orientationSelection": orientation["selection"],
         },
         "molstarRenderStyle": {
             "preset": "clean-interactive",

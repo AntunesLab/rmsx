@@ -7,10 +7,10 @@ import rmsx.flipbook as flipbook
 from rmsx.molstar_viewer import ASSET_DIR, build_molstar_manifest
 
 
-def _atom_line(serial, atom_name, chain_id, residue_id, bfactor, x, segid=""):
+def _atom_line(serial, atom_name, chain_id, residue_id, bfactor, x, y=0.0, z=0.0, segid=""):
     return (
         f"ATOM  {serial:5d} {atom_name:^4s} ALA {chain_id:1s}{residue_id:4d}    "
-        f"{x:8.3f}{0.0:8.3f}{0.0:8.3f}{1.00:6.2f}{bfactor:6.2f}"
+        f"{x:8.3f}{y:8.3f}{z:8.3f}{1.00:6.2f}{bfactor:6.2f}"
         f"      {segid:<4s}{atom_name[0]:>2s}  \n"
     )
 
@@ -28,6 +28,64 @@ def _write_slice(path: Path, chain_id: str, bfactors, segid="") -> None:
 
 
 class TestMolstarViewer(unittest.TestCase):
+    def test_slices_are_rigidly_aligned_to_first_slice(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            reference = [(0.0, 0.0, 0.0), (2.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)]
+            mobile = [(10.0 - y, 5.0 + x, 3.0 + z) for x, y, z in reference]
+            for slice_index, coordinates in enumerate((reference, mobile), start=1):
+                lines = [
+                    _atom_line(index, "CA", "A", index, float(slice_index), x, y, z)
+                    for index, (x, y, z) in enumerate(coordinates, start=1)
+                ]
+                source_text = "".join(lines) + "END\n"
+                (tmp_path / f"slice_{slice_index}_first_frame.pdb").write_text(source_text, encoding="utf-8")
+
+            manifest = build_molstar_manifest(tmp_path)
+            aligned_lines = [
+                line for line in manifest["slices"][1]["pdb"].splitlines() if line.startswith("ATOM")
+            ]
+            aligned = [
+                (float(line[30:38]), float(line[38:46]), float(line[46:54]))
+                for line in aligned_lines
+            ]
+
+            self.assertEqual(manifest["alignmentModel"]["alignedSlices"], 2)
+            self.assertEqual(manifest["alignmentModel"]["skippedSlices"], [])
+            self.assertEqual(
+                (tmp_path / "slice_2_first_frame.pdb").read_text(encoding="utf-8"),
+                "".join(
+                    _atom_line(index, "CA", "A", index, 2.0, x, y, z)
+                    for index, (x, y, z) in enumerate(mobile, start=1)
+                )
+                + "END\n",
+            )
+            for observed, expected in zip(aligned, reference):
+                for observed_value, expected_value in zip(observed, expected):
+                    self.assertAlmostEqual(observed_value, expected_value, places=3)
+
+    def test_default_rotation_uses_aligned_motion_envelope_principal_axis(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp_path = Path(tmpdir)
+            coordinates = [(0.0, 0.0, 0.0), (2.0, 2.0, 0.2), (4.0, 4.0, -0.1), (6.0, 6.0, 0.1)]
+            lines = [
+                _atom_line(index, "CA", "A", index, 1.0, x, y, z)
+                for index, (x, y, z) in enumerate(coordinates, start=1)
+            ]
+            (tmp_path / "slice_1_first_frame.pdb").write_text("".join(lines) + "END\n", encoding="utf-8")
+
+            manifest = build_molstar_manifest(tmp_path)
+            rotation = manifest["rotationModel"]
+            matrix = rotation["defaultRotationMatrix"]
+            diagonal = (1.0, 1.0, 0.0)
+            transformed = [sum(matrix[row][column] * diagonal[column] for column in range(3)) for row in range(3)]
+
+            self.assertEqual(rotation["defaultRotationSource"], "principal-axis orientation")
+            self.assertEqual(rotation["orientationSelection"], "alpha carbons across aligned slices")
+            self.assertGreater(transformed[0], 1.4)
+            self.assertAlmostEqual(transformed[1], 0.0, places=2)
+            self.assertAlmostEqual(transformed[2], 0.0, places=2)
+
     def test_run_flipbook_molstar_writes_manifest_and_notebook_html(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
