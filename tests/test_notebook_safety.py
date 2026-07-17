@@ -1,7 +1,11 @@
+import ast
 import json
 import os
 import unittest
 from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 
 class TestNotebookSafety(unittest.TestCase):
@@ -56,7 +60,7 @@ class TestNotebookSafety(unittest.TestCase):
         self.assertTrue((demo_dir / "short_protease_backbone.dcd").is_file())
 
     def test_notebook_uses_packaged_demo_inputs_and_external_output_root(self) -> None:
-        notebook_path = Path("/Users/finn/Documents/GitHub/rmsx/RMSX_FlipBook_Quickstart.ipynb")
+        notebook_path = REPO_ROOT / "RMSX_FlipBook_Quickstart.ipynb"
         nb = json.loads(notebook_path.read_text(encoding="utf-8"))
         source = "\n".join("".join(cell.get("source", [])) for cell in nb["cells"])
 
@@ -68,7 +72,7 @@ class TestNotebookSafety(unittest.TestCase):
         self.assertNotIn('output_dir_multi = (test_dir / "protease").as_posix()', source)
 
     def test_notebook_includes_advanced_masking_example(self) -> None:
-        notebook_path = Path("/Users/finn/Documents/GitHub/rmsx/RMSX_FlipBook_Quickstart.ipynb")
+        notebook_path = REPO_ROOT / "RMSX_FlipBook_Quickstart.ipynb"
         nb = json.loads(notebook_path.read_text(encoding="utf-8"))
         source = "\n".join("".join(cell.get("source", [])) for cell in nb["cells"])
 
@@ -80,6 +84,48 @@ class TestNotebookSafety(unittest.TestCase):
         self.assertIn("all_chain_rmsx(", source)
         self.assertIn("mask=protease_active_site_mask", source)
         self.assertIn("resave the topology/trajectory without that chain or region using **MDAnalysis**", source)
+
+    def test_molstar_colab_demo_is_colab_and_molstar_focused(self) -> None:
+        notebook_path = REPO_ROOT / "RMSX_Molstar_Colab_Demo.ipynb"
+        nb = json.loads(notebook_path.read_text(encoding="utf-8"))
+        source = "\n".join("".join(cell.get("source", [])) for cell in nb["cells"])
+        code_source_lower = "\n".join(
+            "".join(cell.get("source", [])).lower()
+            for cell in nb["cells"]
+            if cell.get("cell_type") == "code"
+        )
+
+        self.assertIn("colab.research.google.com/github/AntunesLab/rmsx/blob/main/RMSX_Molstar_Colab_Demo.ipynb", source)
+        self.assertIn('GITHUB_REF = os.environ.get("RMSX_GITHUB_REF", "main")', source)
+        self.assertIn('pkg_dir / "test_files"', source)
+        self.assertIn('demo_output_root = Path.cwd() / "rmsx_demo_outputs"', source)
+        self.assertIn('viewer="molstar"', source)
+        self.assertIn('molstar_asset_mode="cdn"', source)
+        self.assertIn("run_rmsx(", source)
+        self.assertIn("all_chain_rmsx(", source)
+        self.assertIn("run_rmsx_flipbook(", source)
+        self.assertIn("protease_active_site_mask = [", source)
+        self.assertNotIn("write_molstar_flipbook(", source)
+        self.assertNotIn("single_images =", source)
+        self.assertNotIn("display(", source)
+        self.assertIn("### Running Locally", source)
+        self.assertIn('viewer="chimerax"', source)
+        self.assertIn('viewer="vmd"', source)
+        self.assertNotIn('viewer="chimerax"', code_source_lower)
+        self.assertNotIn("viewer='chimerax'", code_source_lower)
+        self.assertNotIn('viewer="vmd"', code_source_lower)
+        self.assertNotIn("viewer='vmd'", code_source_lower)
+
+    def test_molstar_colab_demo_code_cells_are_valid_python(self) -> None:
+        notebook_path = REPO_ROOT / "RMSX_Molstar_Colab_Demo.ipynb"
+        nb = json.loads(notebook_path.read_text(encoding="utf-8"))
+
+        for index, cell in enumerate(nb["cells"]):
+            if cell.get("cell_type") != "code":
+                continue
+            source = "".join(cell.get("source", []))
+            with self.subTest(cell=index):
+                ast.parse(source)
 
 
 if __name__ == "__main__":

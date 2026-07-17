@@ -789,6 +789,11 @@ def run_lddt_flipbook(
     viewer: str = "chimerax",
     extra_commands: Optional[Iterable[str]] = None,
     mask=None,
+    molstar_output=None,
+    molstar_manifest_output=None,
+    molstar_asset_mode: str = "cdn",
+    molstar_height: int = 720,
+    molstar_camera_mode: str = "orthographic",
 ):
     """
     Run lDDT analysis and generate a Flipbook visualization, syncing the
@@ -800,7 +805,7 @@ def run_lddt_flipbook(
     Parameters
     ----------
     viewer : str
-        "chimerax" or "vmd", passed through to run_flipbook.
+        "molstar", "chimerax", or "vmd", passed through to run_flipbook.
     extra_commands : iterable of str or None
         Extra commands to append in the viewer script (e.g., ChimeraX commands).
 
@@ -834,7 +839,7 @@ def run_lddt_flipbook(
         mask=mask,
     )
 
-    run_flipbook(
+    result = run_flipbook(
         directory=combined_dir,
         palette=palette,
         min_bfactor=flipbook_min_bfactor,
@@ -842,9 +847,16 @@ def run_lddt_flipbook(
         spacingFactor=spacingFactor,
         extra_commands=extra_commands,
         viewer=viewer,
+        molstar_output=molstar_output,
+        molstar_manifest_output=molstar_manifest_output,
+        molstar_asset_mode=molstar_asset_mode,
+        molstar_height=molstar_height,
+        molstar_camera_mode=molstar_camera_mode,
     )
 
     if verbose:
         print("Full (1 − lDDT) Flipbook analysis completed successfully.")
 
+    if str(viewer).lower() == "molstar":
+        return result
     return combined_dir

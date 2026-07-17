@@ -2141,6 +2141,11 @@ def run_rmsx_flipbook(
         viewer="chimerax",            # <---- NEW DEFAULT ARG
         extra_commands=None,
         mask=None,
+        molstar_output=None,
+        molstar_manifest_output=None,
+        molstar_asset_mode="cdn",
+        molstar_height=720,
+        molstar_camera_mode="orthographic",
 ):
     """
     Run RMSX analysis and generate a FlipBook visualization, syncing the color scale
@@ -2179,18 +2184,24 @@ def run_rmsx_flipbook(
         custom_fill_label=custom_fill_label,  # Propagate the custom label
         mask=mask,
     )
-    run_flipbook(
+    result = run_flipbook(
         directory=combined_dir,
         palette=palette,
         min_bfactor=flipbook_min_bfactor,
         max_bfactor=flipbook_max_bfactor,
         spacingFactor=spacingFactor,
         extra_commands=extra_commands,
-        viewer=viewer  # NEW default viewer
+        viewer=viewer,  # NEW default viewer
+        molstar_output=molstar_output,
+        molstar_manifest_output=molstar_manifest_output,
+        molstar_asset_mode=molstar_asset_mode,
+        molstar_height=molstar_height,
+        molstar_camera_mode=molstar_camera_mode,
     )
 
     if verbose:
         print("Full RMSX flipbook analysis completed successfully.")
+    return result
 
 def run_shift_flipbook(
         topology_file,
@@ -2219,6 +2230,11 @@ def run_shift_flipbook(
         viewer="chimerax",           # <---- NEW
         extra_commands=None,
         mask=None,
+        molstar_output=None,
+        molstar_manifest_output=None,
+        molstar_asset_mode="cdn",
+        molstar_height=720,
+        molstar_camera_mode="orthographic",
 ):
 
     """
@@ -2257,18 +2273,24 @@ def run_shift_flipbook(
         custom_fill_label=custom_fill_label,
         mask=mask,
     )
-    run_flipbook(
+    result = run_flipbook(
         directory=combined_dir,
         palette=palette,
         min_bfactor=flipbook_min_bfactor,
         max_bfactor=flipbook_max_bfactor,
         spacingFactor=spacingFactor,
         extra_commands=extra_commands,
-        viewer=viewer  # NEW default viewer
+        viewer=viewer,  # NEW default viewer
+        molstar_output=molstar_output,
+        molstar_manifest_output=molstar_manifest_output,
+        molstar_asset_mode=molstar_asset_mode,
+        molstar_height=molstar_height,
+        molstar_camera_mode=molstar_camera_mode,
     )
 
     if verbose:
         print("Full analysis including per-chain FlipBook visualization completed successfully.")
+    return result
 
 
 # ---------------------------------------------------------------------

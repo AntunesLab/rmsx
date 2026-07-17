@@ -2,6 +2,15 @@
 
 RMSX and Flipbook are described in our *Scientific Reports* paper, “High resolution mapping of protein motions in time and space with RMSX and Flipbook” ([DOI: 10.1038/s41598-026-39869-7](https://doi.org/10.1038/s41598-026-39869-7)). RMSX combines features of RMSD and RMSF into a simple-to-understand and simple-to-implement approach for understanding how proteins move over time. It works with simulation files from common MD simulation suites, including GROMACS, NAMD, and AMBER, and is designed to generate high-resolution, publication-ready motion maps and Flipbook visualizations with minimal setup.
 
+### Quick Start
+
+**Run in Google Colab (fastest):**
+
+[![Open RMSX Molstar Colab Demo](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/AntunesLab/rmsx/blob/main/RMSX_Molstar_Colab_Demo.ipynb)
+
+The Colab demo runs the bundled examples and displays interactive Molstar Flipbooks directly in the notebook. No local molecular viewer is required.
+
+**Run locally:** download the [Quick Start Guide Notebook](https://github.com/AntunesLab/rmsx/raw/main/RMSX_FlipBook_Quickstart.ipynb), or clone this repository and run `pip install -e .`.
 
 ![RMSX and Flipbook workflow overview](RMSX_Flipbook_how_to_linkedin.gif)
 
@@ -10,14 +19,17 @@ RMSX and Flipbook are described in our *Scientific Reports* paper, “High resol
 If you'd like a guided overview of the method, watch the tutorial here:  
 [RMSX + Flipbook Method Walkthrough](https://www.youtube.com/watch?v=UoN0GQKHCsw)
 
+### Interactive Flipbooks in Notebooks
+
+Flipbook includes a Molstar viewer for interactive 3D visualization inside Jupyter notebooks and Google Colab. Use `viewer="molstar"` with `run_rmsx_flipbook(...)`, or call `write_molstar_flipbook(...)` on an existing folder of `slice_*_first_frame.pdb` outputs. ChimeraX and VMD remain available as optional local viewers.
+
 ### 1. Prerequisites (click for install instructions) 
 - [**Git**](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git#:~:text=Installing%20on%20Windows&text=Just%20go%20to%20https%3A%2F%2F,to%20https%3A%2F%2Fgitforwindows.org.) Installed and added to your path (likely already done if you are using macOS or Linux)
 - [**Python**](https://www.python.org/) If not already installed (tested with 3.8+)
 - [**Jupyter Notebooks**](https://phoenixnap.com/kb/install-jupyter-notebook#:~:text=Install%20Jupyter%20Notebook%20on%20Linux,via%20pip) (Recommended) 
 - [**R**](https://cran.r-project.org/) installed and in your PATH (the `Rscript` command must be available).
-- [**ChimeraX**](https://www.cgl.ucsf.edu/chimerax/download.html) Simplest option if you plan to use the **Flipbook** 3D visualization.
-- _or:_
-- [**VMD**](https://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=VMD) Advanced **Flipbook** option for photorealistic rendering, depth cueing, occlusion, and ray tracing. 
+- **Molstar requires no separate installation** and is the simplest option for notebooks and Colab.
+- [**ChimeraX**](https://www.cgl.ucsf.edu/chimerax/download.html) or [**VMD**](https://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=VMD) are optional local viewers.
 - The RMSX code will attempt to install R packages like `ggplot2`, `viridis`, `dplyr`, etc., if they’re missing.
 
 
@@ -126,7 +138,7 @@ all_chain_rmsx(
 
 ### 5. Flipbook Visualization
 
-To **analyze** your system and **automatically generate** a 3D “flipbook” (multi-model PDB) for ChimeraX, use:
+To **analyze** your system and **automatically generate** an interactive 3D Flipbook, use:
 
 ```python
 from rmsx import run_rmsx_flipbook
@@ -143,6 +155,8 @@ run_rmsx_flipbook(
     overwrite=True,
     palette="mako",
     spacingFactor="0.6",           # Space out models for clarity
+    viewer="molstar",              # "molstar", "chimerax", or "vmd"
+    molstar_camera_mode="orthographic",  # or "perspective"
     start_frame=0,
     end_frame=None
 )
@@ -150,8 +164,20 @@ run_rmsx_flipbook(
 
 1. Produces the RMSX heatmaps/plots just like `run_rmsx`.
 2. Writes multiple **PDB models** (one per time slice) into a single file.
-3. Launches UCSF ChimeraX (if installed) with the resulting “flipbook” so you can step through slices in 3D.  
-   - **Note**: In a notebook environment, the cell may not complete until you close ChimeraX.
+3. With `viewer="molstar"`, writes a standalone HTML viewer and displays the interactive Flipbook directly in Jupyter or Colab.
+4. With `viewer="chimerax"` or `viewer="vmd"`, launches the external desktop viewer if installed.
+
+If you already have a folder of `slice_*_first_frame.pdb` outputs, you can build the notebook viewer without rerunning RMSX:
+
+```python
+from rmsx import write_molstar_flipbook
+
+write_molstar_flipbook(
+    "path/to/output/combined",
+    palette="mako",
+    camera_mode="orthographic",     # or "perspective"
+)
+```
 
 ### 6. Additional Notes
 - **First Runs** R takes some time to download all the required packages the first time the program is run. This only happens once. 
@@ -159,8 +185,8 @@ run_rmsx_flipbook(
 - **Bundled Demo Inputs**: The Quick Start notebook looks for demo files inside the installed `rmsx` package first, then falls back to repo-style `test_files` folders if you are running from source.
 - **Notebook Demo Outputs**: The Quick Start notebook writes demo results into `rmsx_demo_outputs` next to the notebook so packaged demo files stay read-only.
 - **Chain IDs**: If your PDB has chain “A” or “B”, but `chain_sele="C"` is passed, you’ll see errors or zero B-factors. Ensure the chain ID matches.
-- **ChimeraX**: [Download here](https://www.cgl.ucsf.edu/chimerax/download.html) if you’d like to visualize the flipbook.
-- **Jupyter Notebook Behavior**: If you call `run_rmsx_flipbook` inside a Jupyter cell, ChimeraX runs interactively. The next cell won’t run until you **close** ChimeraX (or run it in detached mode). 
+- **ChimeraX**: [Download here](https://www.cgl.ucsf.edu/chimerax/download.html) if you’d like to visualize the Flipbook in ChimeraX.
+- **Jupyter Notebook Behavior**: Use `viewer="molstar"` for an inline notebook/Colab viewer. If you use `viewer="chimerax"`, the next cell may not run until you close ChimeraX.
 
 ### 7. Citation
 

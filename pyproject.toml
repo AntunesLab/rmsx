@@ -23,4 +23,11 @@ where = ["."]
 include = ["rmsx*"]
 
 [tool.setuptools.package-data]
-rmsx = ["r_scripts/*.R", "commands.cxc", "vmd_scripts/*.tcl", "test_files/*"]
+rmsx = [
+  "r_scripts/*.R",
+  "commands.cxc",
+  "vmd_scripts/*.tcl",
+  "molstar_static/script.js",
+  "molstar_static/vendor/molstar/5.4.2/*",
+  "test_files/*",
+]

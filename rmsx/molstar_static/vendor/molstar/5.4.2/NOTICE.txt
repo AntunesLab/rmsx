@@ -1,0 +1,16 @@
+Molstar viewer assets
+=====================
+
+This directory vendors the Molstar viewer JavaScript and CSS bundle used by
+the RMSX Molstar Flipbook notebook/HTML renderer.
+
+Package: molstar
+Version: 5.4.2
+Project: https://molstar.org/
+Source package: https://www.npmjs.com/package/molstar/v/5.4.2
+Repository: https://github.com/molstar/molstar
+
+The generated JavaScript bundle includes bundled third-party license notices
+near the end of molstar.js. The CSS bundle includes its own inline source
+license notice where provided by the upstream build.
+

@@ -12,6 +12,9 @@ __all__ = [
     "run_shift_map",
     "all_chain_shift_map",
     "run_shift_flipbook",
+    "MolstarFlipbookResult",
+    "build_molstar_manifest",
+    "write_molstar_flipbook",
 ]
 
 _CORE_EXPORTS = {
@@ -32,6 +35,9 @@ def __getattr__(name: str) -> Any:
     if name == "run_flipbook":
         flipbook = import_module(".flipbook", __name__)
         return getattr(flipbook, name)
+    if name in {"MolstarFlipbookResult", "build_molstar_manifest", "write_molstar_flipbook"}:
+        molstar_viewer = import_module(".molstar_viewer", __name__)
+        return getattr(molstar_viewer, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

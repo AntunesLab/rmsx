@@ -396,7 +396,10 @@ def _build_chimerax_mask_commands(directory, pdb_file_paths):
 # -------------------------------------------------------------------------
 
 def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=None,
-                 spacingFactor=1, extra_commands=None, viewer='chimerax'):
+                 spacingFactor=1, extra_commands=None, viewer='chimerax',
+                 molstar_output=None, molstar_manifest_output=None,
+                 molstar_asset_mode='cdn', molstar_height=720,
+                 molstar_camera_mode='orthographic'):
     """
     Executes the flipbook functionality to open PDB files in the chosen viewer.
     """
@@ -472,7 +475,31 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
     # --------------------------- VMD BACKEND -----------------------------
     # =====================================================================
     #
-    if viewer.lower() == "vmd":
+    viewer_name = viewer.lower()
+
+    if viewer_name == "molstar":
+        from .molstar_viewer import write_molstar_flipbook
+
+        result = write_molstar_flipbook(
+            directory=directory,
+            palette=palette_name,
+            min_bfactor=min_bfactor,
+            max_bfactor=max_bfactor,
+            spacing_factor=spacingFactor,
+            camera_mode=molstar_camera_mode,
+            output_html=molstar_output,
+            output_manifest=molstar_manifest_output,
+            asset_mode=molstar_asset_mode,
+            iframe_height=molstar_height,
+            title="RMSX Molstar Flipbook",
+            mask_filename=MASK_METADATA_FILENAME,
+            color_palettes=COLOR_PALETTES,
+        )
+        print(f"[flipbook] Molstar HTML written to: {result.html_path}")
+        print(f"[flipbook] Molstar manifest written to: {result.manifest_path}")
+        return result
+
+    if viewer_name == "vmd":
         print("[flipbook] Using VMD backend (PTY Mode)...")
 
         # 1. Define the PTY reader thread function
@@ -558,6 +585,9 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
 
         return  # Prevent ChimeraX execution path
 
+    if viewer_name != "chimerax":
+        raise ValueError("viewer must be one of: 'chimerax', 'vmd', or 'molstar'.")
+
     #
     # =====================================================================
     # ------------------------- CHIMERAX BACKEND --------------------------
@@ -597,8 +627,19 @@ def main():
                         help='Color palette to use for coloring the models.')
     parser.add_argument('--min_bfactor', type=float, default=None, help='Minimum B-factor value.')
     parser.add_argument('--max_bfactor', type=float, default=None, help='Maximum B-factor value.')
-    parser.add_argument('--viewer', type=str, default='chimerax', choices=['chimerax', 'vmd'],
+    parser.add_argument('--viewer', type=str, default='chimerax', choices=['chimerax', 'vmd', 'molstar'],
                         help='Choose visualization backend.')
+    parser.add_argument('--molstar-output', type=str, default=None,
+                        help='Output HTML path for the Molstar backend.')
+    parser.add_argument('--molstar-manifest-output', type=str, default=None,
+                        help='Output JSON manifest path for the Molstar backend.')
+    parser.add_argument('--molstar-asset-mode', type=str, default='cdn', choices=['cdn', 'local', 'inline'],
+                        help='How Molstar assets are loaded in generated HTML.')
+    parser.add_argument('--molstar-height', type=int, default=720,
+                        help='Notebook iframe height for the Molstar backend.')
+    parser.add_argument('--molstar-camera-mode', type=str, default='orthographic',
+                        choices=['orthographic', 'perspective'],
+                        help='Camera projection mode for the Molstar backend.')
     parser.add_argument('--extra-commands', type=str, nargs='+', default=[],
                         help='Extra ChimeraX commands to run after the default commands.')
     args = parser.parse_args()
@@ -610,7 +651,12 @@ def main():
             min_bfactor=args.min_bfactor,
             max_bfactor=args.max_bfactor,
             extra_commands=args.extra_commands,
-            viewer=args.viewer
+            viewer=args.viewer,
+            molstar_output=args.molstar_output,
+            molstar_manifest_output=args.molstar_manifest_output,
+            molstar_asset_mode=args.molstar_asset_mode,
+            molstar_height=args.molstar_height,
+            molstar_camera_mode=args.molstar_camera_mode
         )
     except Exception as e:
         print(f"[flipbook] ERROR: {e}", file=sys.stderr)
