@@ -81,6 +81,25 @@ class TestNotebookSafety(unittest.TestCase):
         self.assertIn("mask=protease_active_site_mask", source)
         self.assertIn("resave the topology/trajectory without that chain or region using **MDAnalysis**", source)
 
+    def test_molstar_colab_demo_is_colab_and_molstar_focused(self) -> None:
+        notebook_path = Path("/Users/finn/Documents/GitHub/rmsx/RMSX_Molstar_Colab_Demo.ipynb")
+        nb = json.loads(notebook_path.read_text(encoding="utf-8"))
+        source = "\n".join("".join(cell.get("source", [])) for cell in nb["cells"])
+        source_lower = source.lower()
+
+        self.assertIn("colab.research.google.com/github/AntunesLab/rmsx/blob/rmsx_molstar/RMSX_Molstar_Colab_Demo.ipynb", source)
+        self.assertIn('GITHUB_REF = os.environ.get("RMSX_GITHUB_REF", "rmsx_molstar")', source)
+        self.assertIn('pkg_dir / "test_files"', source)
+        self.assertIn('demo_output_root = Path.cwd() / "rmsx_demo_outputs"', source)
+        self.assertIn('viewer="molstar"', source)
+        self.assertIn('molstar_asset_mode="cdn"', source)
+        self.assertIn("write_molstar_flipbook(", source)
+        self.assertIn("protease_active_site_mask = [", source)
+        self.assertNotIn('viewer="chimerax"', source_lower)
+        self.assertNotIn("viewer='chimerax'", source_lower)
+        self.assertNotIn('viewer="vmd"', source_lower)
+        self.assertNotIn("viewer='vmd'", source_lower)
+
 
 if __name__ == "__main__":
     unittest.main()
