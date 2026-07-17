@@ -1,18 +1,18 @@
 # RMSX and Flipbook: Simple-to-use, high-resolution mapping of molecular motions over time
 
-RMSX and Flipbook are described in our *Scientific Reports* paper, “High resolution mapping of protein motions in time and space with RMSX and Flipbook” ([DOI: 10.1038/s41598-026-39869-7](https://doi.org/10.1038/s41598-026-39869-7)). RMSX combines features of RMSD and RMSF into a simple-to-understand and simple-to-implement approach for understanding how proteins move over time. It works with simulation files from common MD simulation suites, including GROMACS, NAMD, and AMBER, and is designed to generate high-resolution, publication-ready motion maps and Flipbook visualizations with minimal setup.
-
-### Quick Start
-
-**Run in Google Colab (fastest):**
+## Start Here: [Launch RMSX + Molstar in Google Colab](https://colab.research.google.com/github/AntunesLab/rmsx/blob/main/RMSX_Molstar_Colab_Demo.ipynb)
 
 [![Open RMSX Molstar Colab Demo](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/AntunesLab/rmsx/blob/main/RMSX_Molstar_Colab_Demo.ipynb)
 
-The Colab demo runs the bundled examples and displays interactive Molstar Flipbooks directly in the notebook. No local molecular viewer is required.
+**No installation required.** Run the bundled RMSX examples and explore interactive Molstar Flipbooks directly in your browser.
 
-**Run locally:** download the [Quick Start Guide Notebook](https://github.com/AntunesLab/rmsx/raw/main/RMSX_FlipBook_Quickstart.ipynb), or clone this repository and run `pip install -e .`.
+RMSX and Flipbook are described in our *Scientific Reports* paper, “High resolution mapping of protein motions in time and space with RMSX and Flipbook” ([DOI: 10.1038/s41598-026-39869-7](https://doi.org/10.1038/s41598-026-39869-7)). RMSX combines features of RMSD and RMSF into a simple-to-understand and simple-to-implement approach for understanding how proteins move over time. It works with simulation files from common MD simulation suites, including GROMACS, NAMD, and AMBER, and is designed to generate high-resolution, publication-ready motion maps and Flipbook visualizations with minimal setup.
 
 ![RMSX and Flipbook workflow overview](RMSX_Flipbook_how_to_linkedin.gif)
+
+### Run Locally
+
+Download the [Quick Start Guide Notebook](https://github.com/AntunesLab/rmsx/raw/main/RMSX_FlipBook_Quickstart.ipynb), or clone this repository and run `pip install -e .`.
 
 ### Video Walkthrough
 
