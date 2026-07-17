@@ -1,3 +1,4 @@
+import ast
 import json
 import os
 import unittest
@@ -99,6 +100,17 @@ class TestNotebookSafety(unittest.TestCase):
         self.assertNotIn("viewer='chimerax'", source_lower)
         self.assertNotIn('viewer="vmd"', source_lower)
         self.assertNotIn("viewer='vmd'", source_lower)
+
+    def test_molstar_colab_demo_code_cells_are_valid_python(self) -> None:
+        notebook_path = Path("/Users/finn/Documents/GitHub/rmsx/RMSX_Molstar_Colab_Demo.ipynb")
+        nb = json.loads(notebook_path.read_text(encoding="utf-8"))
+
+        for index, cell in enumerate(nb["cells"]):
+            if cell.get("cell_type") != "code":
+                continue
+            source = "".join(cell.get("source", []))
+            with self.subTest(cell=index):
+                ast.parse(source)
 
 
 if __name__ == "__main__":
