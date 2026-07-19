@@ -96,7 +96,8 @@ class TestNotebookSafety(unittest.TestCase):
         )
 
         self.assertIn("colab.research.google.com/github/AntunesLab/rmsx/blob/main/RMSX_Molstar_Colab_Demo.ipynb", source)
-        self.assertIn('GITHUB_REF = os.environ.get("RMSX_GITHUB_REF", "main")', source)
+        self.assertIn("%pip install -q --upgrade rmsx", source)
+        self.assertNotIn("git+https://github.com/AntunesLab/rmsx.git", source)
         self.assertIn('pkg_dir / "test_files"', source)
         self.assertIn('demo_output_root = Path.cwd() / "rmsx_demo_outputs"', source)
         self.assertIn('viewer="molstar"', source)
@@ -124,8 +125,15 @@ class TestNotebookSafety(unittest.TestCase):
             if cell.get("cell_type") != "code":
                 continue
             source = "".join(cell.get("source", []))
+            # Colab's concise install syntax is valid in a notebook but is not
+            # valid standalone Python. Replace only those shell/magic lines so
+            # the remaining cell contents retain normal Python syntax checks.
+            python_source = "\n".join(
+                "pass" if line.lstrip().startswith(("%", "!")) else line
+                for line in source.splitlines()
+            )
             with self.subTest(cell=index):
-                ast.parse(source)
+                ast.parse(python_source)
 
 
 if __name__ == "__main__":
