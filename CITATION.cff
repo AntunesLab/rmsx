@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+message: "If you use RMSX, please cite it as below."
+title: "RMSX and Flipbook"
+version: 0.1.0
+date-released: 2026-07-19
+license: MIT
+authors:
+  - family-names: Beruldsen
+    given-names: Finn
+  - family-names: de Freitas
+    given-names: Matheus V.
+  - family-names: Antunes
+    given-names: Daniel A.
+repository-code: "https://github.com/AntunesLab/rmsx"
+preferred-citation:
+  type: article
+  authors:
+    - family-names: Beruldsen
+      given-names: Finn
+    - family-names: de Freitas
+      given-names: Matheus V.
+    - family-names: Antunes
+      given-names: Daniel A.
+  title: "High resolution mapping of protein motions in time and space with RMSX and Flipbook"
+  journal: "Scientific Reports"
+  year: 2026
+  doi: 10.1038/s41598-026-39869-7

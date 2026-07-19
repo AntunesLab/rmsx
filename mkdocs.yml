@@ -1,0 +1,22 @@
+site_name: RMSX
+site_description: Residue-level molecular-dynamics motion analysis and visualization
+site_url: https://antuneslab.github.io/rmsx/
+repo_url: https://github.com/AntunesLab/rmsx
+repo_name: AntunesLab/rmsx
+
+theme:
+  name: material
+  features:
+    - navigation.footer
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Visualize protein motion: visualize-protein-motion.md
+  - Choose a method: choosing-a-method.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences

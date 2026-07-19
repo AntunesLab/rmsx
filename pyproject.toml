@@ -1,19 +1,39 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "rmsx"
 version = "0.1.0"
-description = "RMSX trajectory analysis + FlipBook (MDAnalysis + R plotting + ChimeraX)"
+description = "Residue-level molecular-dynamics motion analysis and visualization"
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [{name="Finn Beruldsen"}]
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["molecular dynamics", "protein dynamics", "trajectory analysis", "RMSF", "RMSD", "ChimeraX", "bioinformatics"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering :: Bio-Informatics",
+]
 dependencies = [
   "MDAnalysis>=2.0.0",
   "pandas>=1.1.0",
 #  "plotly>=4.14.3"
 ]
+
+[project.urls]
+Homepage = "https://antuneslab.github.io/rmsx/"
+Documentation = "https://antuneslab.github.io/rmsx/"
+Repository = "https://github.com/AntunesLab/rmsx"
+Issues = "https://github.com/AntunesLab/rmsx/issues"
+
+[project.optional-dependencies]
+docs = ["mkdocs-material>=9.5"]
 
 [project.scripts]
 rmsx = "rmsx.cli:main"
