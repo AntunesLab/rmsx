@@ -3,6 +3,14 @@ import argparse, sys
 from importlib.metadata import version, PackageNotFoundError
 from .core import run_rmsx
 
+QUICK_START = """\
+Quick start:
+  rmsx topology.pdb trajectory.dcd --output_dir results --num_slices 9 --chain A --overwrite
+
+R is required to generate plots. To run the analysis before R is installed, add --no-plot.
+Use `rmsx --help` to see every option.
+"""
+
 def _pkg_version() -> str:
     try:
         return version("rmsx")
@@ -14,7 +22,12 @@ def _pkg_version() -> str:
             return "0.0.0+local"
 
 def build_parser(prog: str = "rmsx") -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog=prog, description="RMSX Trajectory Analysis Tool")
+    p = argparse.ArgumentParser(
+        prog=prog,
+        description="RMSX Trajectory Analysis Tool",
+        epilog=QUICK_START,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
 
     # required (match run_rmsx signature: topology_file, trajectory_file)
     p.add_argument("psf_file", help="Topology file (e.g., PSF/PDB/PRMTOP)")
@@ -59,6 +72,10 @@ def build_parser(prog: str = "rmsx") -> argparse.ArgumentParser:
 
 def main(argv=None, prog: str = "rmsx") -> None:
     parser = build_parser(prog=prog)
+    argv = sys.argv[1:] if argv is None else list(argv)
+    if not argv:
+        parser.print_help()
+        return
     args = parser.parse_args(argv)
 
     # Gentle note if a legacy 3rd positional was provided
@@ -92,4 +109,3 @@ def main(argv=None, prog: str = "rmsx") -> None:
 
 if __name__ == "__main__":
     main(prog="rmsx")
-
