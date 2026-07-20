@@ -97,6 +97,9 @@ class TestNotebookSafety(unittest.TestCase):
 
         self.assertIn("colab.research.google.com/github/AntunesLab/rmsx/blob/main/RMSX_Molstar_Colab_Demo.ipynb", source)
         self.assertIn("%pip install -q --upgrade rmsx", source)
+        self.assertIn("r-cran-ggplot2", source)
+        self.assertIn("r-cran-gridextra", source)
+        self.assertIn("optional `ggpattern` R package", source)
         self.assertNotIn("git+https://github.com/AntunesLab/rmsx.git", source)
         self.assertIn('pkg_dir / "test_files"', source)
         self.assertIn('demo_output_root = Path.cwd() / "rmsx_demo_outputs"', source)

@@ -1321,7 +1321,7 @@ def create_r_plot(
         # produced.  In particular, a first masked plot may need to install
         # ggpattern and its dependencies, which can take several minutes.
         # Capturing that output made a healthy first run look frozen.
-        if verbose:
+        if verbose or mask_required:
             result = subprocess.run(cmd, text=True)
         else:
             result = subprocess.run(cmd, capture_output=True, text=True)
