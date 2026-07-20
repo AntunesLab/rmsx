@@ -26,7 +26,7 @@
   const VISUAL_MIN = 0;
   const VISUAL_MAX = 1;
   const DEFAULT_MAX_SPACING_FACTOR = 1.5;
-  const DEFAULT_SPACING_STEP = 0.025;
+  const DEFAULT_SPACING_STEP = 0.01;
   const incoming = JSON.parse(document.getElementById("app")?.dataset?.incoming || "{}");
   const visualizationConfig = incoming.visualization_config || {};
   const MANAGED_URL_PARAMS = [
@@ -99,7 +99,7 @@
           <details class="control-panel active" open data-panel="view" data-testid="molstar-panel-layout">
             <summary>View</summary>
             <div class="panel-grid">
-              <label>Spacing <input id="spacingRange" type="range" min="0" max="1.5" value="1" step="0.025" data-testid="molstar-spacing-range"><input id="spacingNumber" type="number" min="0" max="1.5" value="1" step="0.025" data-testid="molstar-spacing-number"></label>
+              <label>Spacing <input id="spacingRange" type="range" min="0" max="1.5" value="1" step="0.01" data-testid="molstar-spacing-range"><input id="spacingNumber" type="number" min="0" max="1.5" value="1" step="0.01" data-testid="molstar-spacing-number"></label>
               <label>Cols <input id="columnsNumber" type="number" min="1" value="1" step="1" data-testid="molstar-columns-number"></label>
               <div class="slice-visibility">
                 <div class="field-label">Slices</div>
@@ -494,6 +494,10 @@
 
   function formatNumber(value) {
     return Number.isFinite(value) ? value.toFixed(3) : "-";
+  }
+
+  function roundSpacing(value) {
+    return Math.round(value * 100) / 100;
   }
 
   function numericParam(name, min, max, fallback) {
@@ -1852,8 +1856,8 @@
     elements.viewport.classList.toggle("local-drag-disabled", !state.localDrag);
     elements.thicknessRange.value = String(state.thickness);
     elements.thicknessNumber.value = String(state.thickness);
-    elements.spacingRange.value = String(state.spacing);
-    elements.spacingNumber.value = String(state.spacing);
+    elements.spacingRange.value = state.spacing.toFixed(2);
+    elements.spacingNumber.value = state.spacing.toFixed(2);
     elements.colorMinNumber.value = String(Number(state.colorMin.toFixed(3)));
     elements.colorMaxNumber.value = String(Number(state.colorMax.toFixed(3)));
     elements.radiusMinNumber.value = String(Number(state.radiusMin.toFixed(3)));
@@ -2242,7 +2246,7 @@
     state.radiusMin = numericParam("radiusMin", 0.05, 5, defaultRadiusMin());
     state.radiusMax = numericParam("radiusMax", 0.1, 8, defaultRadiusMax());
     state.thickness = numericParam("thickness", 0.25, 2.5, defaultThickness());
-    state.spacing = numericParam("spacing", minSpacing(), maxSpacing(), defaultSpacing());
+    state.spacing = roundSpacing(numericParam("spacing", minSpacing(), maxSpacing(), defaultSpacing()));
     state.renderMode = renderModeFromParam();
     state.outline = outlineFromParam();
     state.cameraMode = cameraModeFromParam();
@@ -2406,13 +2410,13 @@
   }
 
   function updateSpacing(value) {
-    const next = clamp(Number(value), minSpacing(), maxSpacing());
+    const next = roundSpacing(clamp(Number(value), minSpacing(), maxSpacing()));
     if (!Number.isFinite(next)) {
       return;
     }
     state.spacing = next;
-    elements.spacingRange.value = next.toFixed(3);
-    elements.spacingNumber.value = next.toFixed(3);
+    elements.spacingRange.value = next.toFixed(2);
+    elements.spacingNumber.value = next.toFixed(2);
     updateMetrics();
     syncUrlState();
     if (state.layout === "tiled") {

@@ -120,7 +120,7 @@ class TestMolstarViewer(unittest.TestCase):
             self.assertEqual(manifest["flipbookReference"]["defaultSpacingMode"], "auto")
             self.assertIsNone(manifest["flipbookReference"]["defaultSpacingFactor"])
             self.assertEqual(manifest["flipbookReference"]["tilePaddingFactor"], 1.0)
-            self.assertEqual(manifest["keyboardShortcuts"]["spacingStep"], 0.025)
+            self.assertEqual(manifest["keyboardShortcuts"]["spacingStep"], 0.01)
 
             perspective_result = flipbook.run_flipbook(
                 str(tmp_path),
@@ -172,7 +172,8 @@ class TestMolstarViewer(unittest.TestCase):
         script = (ASSET_DIR / "script.js").read_text(encoding="utf-8")
         self.assertIn('const CAMERA_MODES = new Set(["orthographic", "perspective"])', script)
         self.assertIn('mode: state.cameraMode', script)
-        self.assertIn('step="0.025"', script)
+        self.assertIn('step="0.01"', script)
+        self.assertIn("function roundSpacing(value)", script)
         self.assertIn("spacingStep: spacingStep()", script)
         self.assertIn("function automaticSpacingFactor()", script)
         self.assertIn('defaultSpacingMode === "auto"', script)
