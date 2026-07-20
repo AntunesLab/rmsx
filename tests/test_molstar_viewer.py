@@ -64,7 +64,7 @@ class TestMolstarViewer(unittest.TestCase):
                 for observed_value, expected_value in zip(observed, expected):
                     self.assertAlmostEqual(observed_value, expected_value, places=3)
 
-    def test_default_rotation_uses_aligned_motion_envelope_principal_axis(self) -> None:
+    def test_default_rotation_uses_a_portrait_principal_axis(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp_path = Path(tmpdir)
             coordinates = [(0.0, 0.0, 0.0), (2.0, 2.0, 0.2), (4.0, 4.0, -0.1), (6.0, 6.0, 0.1)]
@@ -80,10 +80,11 @@ class TestMolstarViewer(unittest.TestCase):
             diagonal = (1.0, 1.0, 0.0)
             transformed = [sum(matrix[row][column] * diagonal[column] for column in range(3)) for row in range(3)]
 
-            self.assertEqual(rotation["defaultRotationSource"], "principal-axis orientation")
+            self.assertEqual(rotation["defaultRotationSource"], "principal-axis portrait orientation")
+            self.assertEqual(rotation["orientation"], "portrait")
             self.assertEqual(rotation["orientationSelection"], "alpha carbons across aligned slices")
-            self.assertGreater(transformed[0], 1.4)
-            self.assertAlmostEqual(transformed[1], 0.0, places=2)
+            self.assertAlmostEqual(transformed[0], 0.0, places=2)
+            self.assertGreater(transformed[1], 1.4)
             self.assertAlmostEqual(transformed[2], 0.0, places=2)
 
     def test_run_flipbook_molstar_writes_manifest_and_notebook_html(self) -> None:
@@ -116,7 +117,8 @@ class TestMolstarViewer(unittest.TestCase):
             self.assertEqual(manifest["molstarRenderStyle"]["cameraMode"], "orthographic")
             self.assertEqual(manifest["flipbookReference"]["minimumSpacingFactor"], 0.0)
             self.assertEqual(manifest["flipbookReference"]["maximumSpacingFactor"], 1.5)
-            self.assertEqual(manifest["flipbookReference"]["defaultSpacingFactor"], 1.0)
+            self.assertEqual(manifest["flipbookReference"]["defaultSpacingMode"], "auto")
+            self.assertIsNone(manifest["flipbookReference"]["defaultSpacingFactor"])
             self.assertEqual(manifest["flipbookReference"]["tilePaddingFactor"], 1.0)
             self.assertEqual(manifest["keyboardShortcuts"]["spacingStep"], 0.025)
 
@@ -135,6 +137,17 @@ class TestMolstarViewer(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "camera_mode"):
                 build_molstar_manifest(tmp_path, camera_mode="fisheye")
+            with self.assertRaisesRegex(ValueError, "orientation"):
+                build_molstar_manifest(tmp_path, orientation="diagonal")
+
+            fixed_spacing = build_molstar_manifest(
+                tmp_path,
+                spacing_factor=0.42,
+                orientation="landscape",
+            )
+            self.assertEqual(fixed_spacing["flipbookReference"]["defaultSpacingMode"], "fixed")
+            self.assertEqual(fixed_spacing["flipbookReference"]["defaultSpacingFactor"], 0.42)
+            self.assertEqual(fixed_spacing["rotationModel"]["orientation"], "landscape")
 
     def test_numeric_segid_masks_are_mapped_to_pdb_chain_id(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -161,6 +174,8 @@ class TestMolstarViewer(unittest.TestCase):
         self.assertIn('mode: state.cameraMode', script)
         self.assertIn('step="0.025"', script)
         self.assertIn("spacingStep: spacingStep()", script)
+        self.assertIn("function automaticSpacingFactor()", script)
+        self.assertIn('defaultSpacingMode === "auto"', script)
         self.assertNotIn("queueGeometryUpdate(true)", script)
 
     def test_top_level_molstar_helpers_are_lazy_exports(self) -> None:

@@ -23,11 +23,14 @@ DEFAULT_THICKNESS_SCALE = 1.0
 DEFAULT_TILE_PADDING_FACTOR = 1.0
 DEFAULT_MAX_SPACING_FACTOR = 1.5
 DEFAULT_SPACING_STEP = 0.025
+DEFAULT_AUTO_SPACING_GAP_FRACTION = 0.10
+DEFAULT_AUTO_SPACING_MINIMUM_GAP = 8.0
 DEFAULT_HTML_NAME = "rmsx_molstar_flipbook.html"
 DEFAULT_MANIFEST_NAME = "rmsx_molstar_manifest.json"
 SLICE_RE = re.compile(r"^slice_(\d+)_first_frame\.pdb$")
 ASSET_DIR = Path(__file__).resolve().parent / "molstar_static"
 CAMERA_MODES = {"orthographic", "perspective"}
+ORIENTATION_MODES = {"portrait", "landscape"}
 
 DEFAULT_COLOR_PALETTES = {
     "magma": [
@@ -198,7 +201,11 @@ def _euler_from_rotation_matrix(matrix: List[List[float]]) -> Dict[str, float]:
     return {"x": degrees(x_angle), "y": degrees(y_angle), "z": degrees(z_angle)}
 
 
-def _automatic_orientation(pdb_text: str, scope: str = "in the first slice") -> Dict[str, Any]:
+def _automatic_orientation(
+    pdb_text: str,
+    scope: str = "in the first slice",
+    orientation: str = "portrait",
+) -> Dict[str, Any]:
     coordinates, selection = _pdb_orientation_coordinates(pdb_text)
     selection_description = f"{selection} {scope}"
     fallback_matrix = [[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]]
@@ -227,12 +234,17 @@ def _automatic_orientation(pdb_text: str, scope: str = "in the first slice") -> 
     if _dot(depth_axis, depth_axis) < 1e-10:
         return fallback
     secondary_axis = _normalize(_cross(depth_axis, major_axis))
-    matrix = [list(major_axis), list(secondary_axis), list(depth_axis)]
+    if orientation == "portrait":
+        # Put the long molecular axis on screen vertical; the tile row remains horizontal.
+        # The negated depth axis keeps the rotation matrix right-handed.
+        matrix = [list(secondary_axis), list(major_axis), [-value for value in depth_axis]]
+    else:
+        matrix = [list(major_axis), list(secondary_axis), list(depth_axis)]
     rounded_matrix = [[round(value, 9) for value in row] for row in matrix]
     return {
         "rotation": _euler_from_rotation_matrix(matrix),
         "matrix": rounded_matrix,
-        "source": "principal-axis orientation",
+        "source": f"principal-axis {orientation} orientation",
         "selection": selection_description,
     }
 
@@ -536,6 +548,13 @@ def _normalize_camera_mode(camera_mode: str) -> str:
     return normalized
 
 
+def _normalize_orientation(orientation: str) -> str:
+    normalized = str(orientation).strip().lower()
+    if normalized not in ORIENTATION_MODES:
+        raise ValueError("orientation must be one of: 'portrait' or 'landscape'.")
+    return normalized
+
+
 def _color_stops(domain: Mapping[str, float], palette_colors: Iterable[str]) -> List[Dict[str, Any]]:
     colors = list(palette_colors)
     if len(colors) < 2:
@@ -554,7 +573,10 @@ def _build_flipbook_reference(
     palette_colors: Iterable[str],
     spacing_factor: Any,
 ) -> Dict[str, Any]:
-    default_spacing = _safe_float(spacing_factor, 1.0)
+    spacing_text = str(spacing_factor).strip().lower()
+    spacing_mode = "auto" if spacing_text == "auto" else "fixed"
+    default_spacing = None if spacing_mode == "auto" else _safe_float(spacing_factor, 1.0)
+    spacing_label = spacing_text if spacing_mode == "auto" else f"{default_spacing:g}"
     color_stops = _color_stops(domain, palette_colors)
     color_mapping = ":".join(f"{stop['bfactor']},{stop['color']}" for stop in color_stops)
     num_models = len(slices)
@@ -564,6 +586,9 @@ def _build_flipbook_reference(
         "minimumSpacingFactor": 0.0,
         "maximumSpacingFactor": DEFAULT_MAX_SPACING_FACTOR,
         "defaultSpacingFactor": default_spacing,
+        "defaultSpacingMode": spacing_mode,
+        "autoSpacingGapFraction": DEFAULT_AUTO_SPACING_GAP_FRACTION,
+        "autoSpacingMinimumGap": DEFAULT_AUTO_SPACING_MINIMUM_GAP,
         "tilePaddingFactor": DEFAULT_TILE_PADDING_FACTOR,
         "palette": palette_name,
         "colorStops": color_stops,
@@ -577,7 +602,7 @@ def _build_flipbook_reference(
             "graphics silhouettes true",
             "set bgColor white",
             f"color byattribute a:bfactor #1-{num_models} target absc palette {color_mapping}",
-            f"tile all columns {num_models} spacingFactor {default_spacing:g}",
+            f"tile all columns {num_models} spacingFactor {spacing_label}",
         ],
     }
 
@@ -587,8 +612,9 @@ def build_molstar_manifest(
     palette: str = "viridis",
     min_bfactor: Optional[float] = None,
     max_bfactor: Optional[float] = None,
-    spacing_factor: Any = 1,
+    spacing_factor: Any = "auto",
     camera_mode: str = "orthographic",
+    orientation: str = "portrait",
     title: str = "RMSX Molstar Flipbook",
     mask_filename: str = "masked_residues.csv",
     color_palettes: Optional[Mapping[str, List[str]]] = None,
@@ -599,12 +625,14 @@ def build_molstar_manifest(
     if palette not in palettes:
         raise ValueError(f"Palette '{palette}' is not defined.")
     normalized_camera_mode = _normalize_camera_mode(camera_mode)
+    normalized_orientation = _normalize_orientation(orientation)
 
     slices, residues, observed_domain, summaries, chain_aliases = _read_slices_and_residues(directory_path)
     alignment = _align_slices_to_reference(slices)
     orientation = _automatic_orientation(
         "\n".join(slice_entry["pdb"] for slice_entry in slices),
         scope="across aligned slices",
+        orientation=normalized_orientation,
     )
     domain_min = observed_domain["min"] if min_bfactor is None else min(observed_domain["min"], float(min_bfactor))
     domain_max = observed_domain["max"] if max_bfactor is None else max(observed_domain["max"], float(max_bfactor))
@@ -651,6 +679,7 @@ def build_molstar_manifest(
         "alignmentModel": alignment,
         "rotationModel": {
             "mode": "shared principal-axis orientation with per-slice local pivots",
+            "orientation": normalized_orientation,
             "pivot": "geometric center of each full slice before mask splitting",
             "layoutOrder": "rotate around local center, then place that center on a shared Flipbook slot anchor plus tile offset",
             "defaultRotation": orientation["rotation"],
@@ -802,8 +831,9 @@ def write_molstar_flipbook(
     palette: str = "viridis",
     min_bfactor: Optional[float] = None,
     max_bfactor: Optional[float] = None,
-    spacing_factor: Any = 1,
+    spacing_factor: Any = "auto",
     camera_mode: str = "orthographic",
+    orientation: str = "portrait",
     output_html: Optional[Union[str, Path]] = None,
     output_manifest: Optional[Union[str, Path]] = None,
     asset_mode: str = "cdn",
@@ -821,6 +851,7 @@ def write_molstar_flipbook(
         max_bfactor=max_bfactor,
         spacing_factor=spacing_factor,
         camera_mode=camera_mode,
+        orientation=orientation,
         title=title,
         mask_filename=mask_filename,
         color_palettes=color_palettes,

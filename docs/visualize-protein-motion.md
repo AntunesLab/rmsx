@@ -49,3 +49,19 @@ run_rmsx_flipbook(
 ```
 
 ChimeraX runs interactively, so a notebook cell may not finish until its window is closed. See the [method guide](choosing-a-method.md) for when a slice-wise RMSX map adds information beyond RMSF or RMSD.
+
+### Molstar in notebooks and Colab
+
+Use `viewer="molstar"` to display the Flipbook in a browser. Molstar keeps the slices in a single left-to-right row and automatically rotates the shared long axis upright. Its default spacing is compact but non-overlapping; pass a number only when you need a deliberate override.
+
+```python
+run_rmsx_flipbook(
+    topology_file="topology.pdb",
+    trajectory_file="trajectory.dcd",
+    output_dir="results",
+    num_slices=9,
+    viewer="molstar",
+    spacingFactor="auto",  # Or a number such as 0.42.
+    overwrite=True,
+)
+```

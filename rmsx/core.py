@@ -2126,7 +2126,7 @@ def run_rmsx_flipbook(
         triple=False,
         overwrite=False,
         palette='viridis',
-        spacingFactor="1",
+        spacingFactor=None,
         start_frame=0,
         end_frame=None,
         analysis_type="protein",
@@ -2146,6 +2146,7 @@ def run_rmsx_flipbook(
         molstar_asset_mode="cdn",
         molstar_height=720,
         molstar_camera_mode="orthographic",
+        molstar_orientation="portrait",
 ):
     """
     Run RMSX analysis and generate a FlipBook visualization, syncing the color scale
@@ -2197,6 +2198,7 @@ def run_rmsx_flipbook(
         molstar_asset_mode=molstar_asset_mode,
         molstar_height=molstar_height,
         molstar_camera_mode=molstar_camera_mode,
+        molstar_orientation=molstar_orientation,
     )
 
     if verbose:
@@ -2215,7 +2217,7 @@ def run_shift_flipbook(
         triple=False,
         overwrite=False,
         palette='viridis',
-        spacingFactor="1",
+        spacingFactor=None,
         start_frame=0,
         end_frame=None,
         analysis_type="protein and name CA",
@@ -2235,6 +2237,7 @@ def run_shift_flipbook(
         molstar_asset_mode="cdn",
         molstar_height=720,
         molstar_camera_mode="orthographic",
+        molstar_orientation="portrait",
 ):
 
     """
@@ -2286,6 +2289,7 @@ def run_shift_flipbook(
         molstar_asset_mode=molstar_asset_mode,
         molstar_height=molstar_height,
         molstar_camera_mode=molstar_camera_mode,
+        molstar_orientation=molstar_orientation,
     )
 
     if verbose:

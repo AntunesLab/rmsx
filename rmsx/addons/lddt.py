@@ -773,7 +773,7 @@ def run_lddt_flipbook(
     triple: bool = False,
     overwrite: bool = False,
     palette: str = "viridis",
-    spacingFactor: str = "1",
+    spacingFactor: Optional[str] = None,
     start_frame: int = 0,
     end_frame: Optional[int] = None,
     analysis_type: str = "protein",
@@ -794,6 +794,7 @@ def run_lddt_flipbook(
     molstar_asset_mode: str = "cdn",
     molstar_height: int = 720,
     molstar_camera_mode: str = "orthographic",
+    molstar_orientation: str = "portrait",
 ):
     """
     Run lDDT analysis and generate a Flipbook visualization, syncing the
@@ -852,6 +853,7 @@ def run_lddt_flipbook(
         molstar_asset_mode=molstar_asset_mode,
         molstar_height=molstar_height,
         molstar_camera_mode=molstar_camera_mode,
+        molstar_orientation=molstar_orientation,
     )
 
     if verbose:

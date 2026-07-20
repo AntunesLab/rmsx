@@ -672,6 +672,9 @@
   }
 
   function defaultSpacing() {
+    if (REPORT.flipbookReference?.defaultSpacingMode === "auto") {
+      return automaticSpacingFactor();
+    }
     return Number(REPORT.flipbookReference?.defaultSpacingFactor ?? 1);
   }
 
@@ -969,6 +972,17 @@
       return rotatedExtentX(stats, layoutMatrix);
     });
     return (Math.max(30, ...projectedWidths) + visualRadiusPadding()) * tilePaddingFactor();
+  }
+
+  function automaticSpacingFactor() {
+    const layoutMatrix = defaultRotationMatrix();
+    const widestSlice = Math.max(30, ...REPORT.slices.map((slice) =>
+      rotatedExtentX(structureStats(slice.pdb), layoutMatrix)
+    ));
+    const gapFraction = Number(REPORT.flipbookReference?.autoSpacingGapFraction ?? 0.10);
+    const minimumGap = Number(REPORT.flipbookReference?.autoSpacingMinimumGap ?? 8);
+    const targetSlot = widestSlice + Math.max(minimumGap, widestSlice * gapFraction);
+    return clamp(targetSlot / visualEnvelope(), minSpacing(), maxSpacing());
   }
 
   function rotatedExtentX(stats, matrix) {

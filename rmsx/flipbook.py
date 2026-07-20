@@ -396,10 +396,10 @@ def _build_chimerax_mask_commands(directory, pdb_file_paths):
 # -------------------------------------------------------------------------
 
 def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=None,
-                 spacingFactor=1, extra_commands=None, viewer='chimerax',
+                 spacingFactor=None, extra_commands=None, viewer='chimerax',
                  molstar_output=None, molstar_manifest_output=None,
                  molstar_asset_mode='cdn', molstar_height=720,
-                 molstar_camera_mode='orthographic'):
+                 molstar_camera_mode='orthographic', molstar_orientation='portrait'):
     """
     Executes the flipbook functionality to open PDB files in the chosen viewer.
     """
@@ -456,7 +456,7 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
         "graphics silhouettes true",
         "set bgColor white",
         color_command,
-        f"tile all columns {columns} spacingFactor {spacingFactor}",
+        f"tile all columns {columns} spacingFactor {1 if spacingFactor is None else spacingFactor}",
         f"close #{axis_id}",
         f"save {directory}/rmsx_{palette}.png width 2000 height 1000 supersample 3 transparentBackground true"
     ]
@@ -485,8 +485,9 @@ def run_flipbook(directory, palette='viridis', min_bfactor=None, max_bfactor=Non
             palette=palette_name,
             min_bfactor=min_bfactor,
             max_bfactor=max_bfactor,
-            spacing_factor=spacingFactor,
+            spacing_factor="auto" if spacingFactor is None else spacingFactor,
             camera_mode=molstar_camera_mode,
+            orientation=molstar_orientation,
             output_html=molstar_output,
             output_manifest=molstar_manifest_output,
             asset_mode=molstar_asset_mode,
@@ -640,6 +641,10 @@ def main():
     parser.add_argument('--molstar-camera-mode', type=str, default='orthographic',
                         choices=['orthographic', 'perspective'],
                         help='Camera projection mode for the Molstar backend.')
+    parser.add_argument('--molstar-orientation', type=str, default='portrait', choices=['portrait', 'landscape'],
+                        help='Shared Molstar orientation for the horizontal tile row.')
+    parser.add_argument('--spacing-factor', type=str, default=None,
+                        help="Tile spacing factor, or 'auto' for compact non-overlapping Molstar spacing.")
     parser.add_argument('--extra-commands', type=str, nargs='+', default=[],
                         help='Extra ChimeraX commands to run after the default commands.')
     args = parser.parse_args()
@@ -656,7 +661,9 @@ def main():
             molstar_manifest_output=args.molstar_manifest_output,
             molstar_asset_mode=args.molstar_asset_mode,
             molstar_height=args.molstar_height,
-            molstar_camera_mode=args.molstar_camera_mode
+            molstar_camera_mode=args.molstar_camera_mode,
+            molstar_orientation=args.molstar_orientation,
+            spacingFactor=args.spacing_factor,
         )
     except Exception as e:
         print(f"[flipbook] ERROR: {e}", file=sys.stderr)
