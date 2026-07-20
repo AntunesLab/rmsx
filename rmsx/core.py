@@ -1317,10 +1317,21 @@ def create_r_plot(
             print("Running R script command:")
             print(" ".join(cmd))
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
+        # In interactive environments, let R's output reach the user as it is
+        # produced.  In particular, a first masked plot may need to install
+        # ggpattern and its dependencies, which can take several minutes.
+        # Capturing that output made a healthy first run look frozen.
+        if verbose:
+            result = subprocess.run(cmd, text=True)
+        else:
+            result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
             if mask_required:
-                details = result.stderr.strip() or result.stdout.strip() or "Unknown R error."
+                details = (
+                    (getattr(result, "stderr", "") or "").strip()
+                    or (getattr(result, "stdout", "") or "").strip()
+                    or "See the R output above for details."
+                )
                 raise RuntimeError(
                     "Masked heatmap rendering failed. Masked plots require R 4.1+ with ggpattern support. "
                     f"R reported: {details}"
